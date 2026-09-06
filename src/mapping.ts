@@ -5,16 +5,16 @@ import {
   Registered,
   Transfer,
   URIUpdated,
-} from "../generated/IdentityRegistry/IdentityRegistry"
+} from "../generated/IdentityRegistry/IdentityRegistry";
 import {
   FeedbackRevoked,
   NewFeedback,
   ResponseAppended,
-} from "../generated/ReputationRegistry/ReputationRegistry"
+} from "../generated/ReputationRegistry/ReputationRegistry";
 import {
   ValidationRequest,
   ValidationResponse,
-} from "../generated/ValidationRegistry/ValidationRegistry"
+} from "../generated/ValidationRegistry/ValidationRegistry";
 
 export function handleRegistered(_event: Registered): void {}
 

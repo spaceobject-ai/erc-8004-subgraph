@@ -1,4 +1,4 @@
-import { defineConfig } from "vite-plus"
+import { defineConfig } from "vite-plus";
 
 export default defineConfig({
   staged: {
@@ -14,8 +14,6 @@ export default defineConfig({
       ".generated/**",
       "subgraph.template.yaml",
     ],
-    printWidth: 80,
-    semi: false,
   },
   lint: {
     options: {
@@ -23,4 +21,4 @@ export default defineConfig({
       typeCheck: false,
     },
   },
-})
+});
