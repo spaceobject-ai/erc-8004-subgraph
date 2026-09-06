@@ -16,24 +16,24 @@ import {
   ValidationResponse,
 } from "../generated/ValidationRegistry/ValidationRegistry"
 
-export function handleRegistered(event: Registered): void {}
+export function handleRegistered(_event: Registered): void {}
 
-export function handleMetadataSet(event: MetadataSet): void {}
+export function handleMetadataSet(_event: MetadataSet): void {}
 
-export function handleURIUpdated(event: URIUpdated): void {}
+export function handleURIUpdated(_event: URIUpdated): void {}
 
-export function handleTransfer(event: Transfer): void {}
+export function handleTransfer(_event: Transfer): void {}
 
-export function handleApproval(event: Approval): void {}
+export function handleApproval(_event: Approval): void {}
 
-export function handleApprovalForAll(event: ApprovalForAll): void {}
+export function handleApprovalForAll(_event: ApprovalForAll): void {}
 
-export function handleNewFeedback(event: NewFeedback): void {}
+export function handleNewFeedback(_event: NewFeedback): void {}
 
-export function handleFeedbackRevoked(event: FeedbackRevoked): void {}
+export function handleFeedbackRevoked(_event: FeedbackRevoked): void {}
 
-export function handleResponseAppended(event: ResponseAppended): void {}
+export function handleResponseAppended(_event: ResponseAppended): void {}
 
-export function handleValidationRequest(event: ValidationRequest): void {}
+export function handleValidationRequest(_event: ValidationRequest): void {}
 
-export function handleValidationResponse(event: ValidationResponse): void {}
+export function handleValidationResponse(_event: ValidationResponse): void {}

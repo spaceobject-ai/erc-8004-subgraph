@@ -60,7 +60,9 @@ function parseArgs(args: string[]) {
 
 function requireChain(name: string) {
   if (!(name in chains)) {
-    fail(`Unknown chain "${name}". Available chains: ${Object.keys(chains).join(", ")}.`)
+    fail(
+      `Unknown chain "${name}". Available chains: ${Object.keys(chains).join(", ")}.`,
+    )
   }
 
   return chains[name as keyof typeof chains]
@@ -87,7 +89,8 @@ async function generateManifest(
   )
   const output = path.join(".generated", name, "subgraph.yaml")
 
-  if (manifest.includes("{{")) fail("The manifest has an unknown template value.")
+  if (manifest.includes("{{"))
+    fail("The manifest has an unknown template value.")
 
   await Bun.write(output, manifest)
   return output

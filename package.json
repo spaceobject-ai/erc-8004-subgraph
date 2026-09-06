@@ -4,14 +4,24 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "bun run ./scripts/deploy.ts arc-testnet --build-only",
-    "deploy": "bun run ./scripts/deploy.ts"
+    "build": "bun run ./scripts/deploy.ts arc-testnet --build-only",
+    "deploy": "bun run ./scripts/deploy.ts",
+    "prepare": "vp config --no-agent",
+    "ready": "vp check && vp run build"
   },
   "dependencies": {
     "@graphprotocol/graph-cli": "0.98.1",
     "@graphprotocol/graph-ts": "0.38.2"
   },
   "devDependencies": {
-    "@types/bun": "^1.2.0"
+    "@types/bun": "^1.2.0",
+    "vite-plus": "0.3.0"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "bun",
+      "version": "1.3.14",
+      "onFail": "download"
+    }
   }
 }
