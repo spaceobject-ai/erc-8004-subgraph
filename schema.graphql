@@ -20,12 +20,42 @@ type _Schema_
     ]
   )
   @fulltext(
+    name: "agentFileProfileSearch"
+    language: en
+    algorithm: rank
+    include: [
+      { entity: "AgentRegistrationFile", fields: [{ name: "name" }, { name: "description" }] }
+    ]
+  )
+  @fulltext(
+    name: "agentFileServiceSearch"
+    language: en
+    algorithm: rank
+    include: [
+      {
+        entity: "AgentFileService"
+        fields: [{ name: "name" }, { name: "description" }, { name: "endpoint" }]
+      }
+    ]
+  )
+  @fulltext(
     name: "feedbackDocumentSearch"
     language: en
     algorithm: rank
     include: [
       {
         entity: "FeedbackDocument"
+        fields: [{ name: "reasoning" }, { name: "context" }, { name: "task" }]
+      }
+    ]
+  )
+  @fulltext(
+    name: "feedbackFileSearch"
+    language: en
+    algorithm: rank
+    include: [
+      {
+        entity: "FeedbackDocumentFile"
         fields: [{ name: "reasoning" }, { name: "context" }, { name: "task" }]
       }
     ]
@@ -77,6 +107,58 @@ enum TrustKind {
   TEE_ATTESTATION
   SOCIAL_GRAPH
   CUSTOM
+}
+
+enum FeedbackFeatureKind {
+  SKILL
+  A2A_SKILL
+  OASF_SKILL
+  OASF_DOMAIN
+  MCP_CAPABILITY
+  MCP_TOOL
+  MCP_PROMPT
+  MCP_RESOURCE
+  MCP_COMPLETION
+  CUSTOM
+}
+
+interface AgentRegistrationDocument {
+  id: Bytes!
+  sourceURI: String!
+  sourceURIKind: URIKind!
+  contentHash: Bytes
+  rawJSON: String!
+  profileType: String
+  name: String
+  description: String
+  image: String
+  active: Boolean
+  x402Support: Boolean
+  metadataUpdatedAt: Timestamp
+  usedLegacyEndpointsField: Boolean!
+}
+
+interface FeedbackDocumentData {
+  id: Bytes!
+  feedbackId: Bytes!
+  sourceURI: String!
+  sourceURIKind: URIKind!
+  contentHash: Bytes
+  rawJSON: String!
+  agentRegistry: String
+  agentId: BigInt
+  clientAddress: String
+  createdAt: String
+  value: BigDecimal
+  valueDecimals: Int
+  tag1: String
+  tag2: String
+  endpoint: String
+  reasoning: String
+  context: String
+  task: String
+  a2aContextId: String
+  a2aTaskId: String
 }
 
 # Registry-level state is useful for discovery pages and protocol counters.
@@ -133,7 +215,7 @@ type Agent @entity(immutable: false) {
   agentURI: String!
   agentURIKind: URIKind!
   uriRevision: BigInt!
-  registration: AgentRegistration
+  registration: AgentRegistrationDocument
 
   feedbackCount: BigInt!
   activeFeedbackCount: BigInt!
@@ -187,7 +269,7 @@ type AgentURIRevision @entity(immutable: true) {
   uri: String!
   uriKind: URIKind!
   updatedBy: Account!
-  registration: AgentRegistration
+  registration: AgentRegistrationDocument
   blockNumber: BigInt!
   timestamp: Timestamp!
   transactionHash: Bytes!
@@ -239,11 +321,9 @@ type AgentMetadataRevision @entity(immutable: true) {
   logIndex: BigInt!
 }
 
-# Parsed agentURI contents. This entity and its children are immutable so they
-# can be written safely by IPFS or Arweave file data sources. ID should be the
-# hash of the complete source URI; Agent.registration points at the current
-# version before asynchronous file parsing finishes.
-type AgentRegistration @entity(immutable: true) {
+# Parsed data: agentURI contents. Chain handlers own this entity tree. The ID is
+# the hash of the complete source URI, so agents can share identical documents.
+type AgentRegistration implements AgentRegistrationDocument @entity(immutable: true) {
   id: Bytes!
   sourceURI: String!
   sourceURIKind: URIKind!
@@ -322,6 +402,80 @@ type AgentTrust @entity(immutable: true) {
   name: String!
 }
 
+# IPFS and Arweave handlers cannot write the chain-owned entity types above.
+# This parallel tree gives file data sources their own immutable entity types.
+type AgentRegistrationFile implements AgentRegistrationDocument @entity(immutable: true) {
+  id: Bytes!
+  sourceURI: String!
+  sourceURIKind: URIKind!
+  contentHash: Bytes
+  rawJSON: String!
+
+  profileType: String
+  name: String
+  description: String
+  image: String
+  active: Boolean
+  x402Support: Boolean
+  metadataUpdatedAt: Timestamp
+  usedLegacyEndpointsField: Boolean!
+
+  services: [AgentFileService!]! @derivedFrom(field: "registration")
+  registrations: [AgentFileRegistrationReference!]! @derivedFrom(field: "registration")
+  supportedTrust: [AgentFileTrust!]! @derivedFrom(field: "registration")
+}
+
+type AgentFileService @entity(immutable: true) {
+  id: Bytes!
+  registration: AgentRegistrationFile!
+  position: Int!
+  kind: AgentServiceKind!
+  name: String!
+  endpoint: String!
+  version: String
+  description: String
+  method: String
+  capabilitiesInferred: Boolean!
+  features: [AgentFileServiceFeature!]! @derivedFrom(field: "service")
+  attributes: [AgentFileServiceAttribute!]! @derivedFrom(field: "service")
+}
+
+type AgentFileServiceFeature @entity(immutable: true) {
+  id: Bytes!
+  service: AgentFileService!
+  position: Int!
+  kind: AgentServiceFeatureKind!
+  value: String!
+}
+
+type AgentFileServiceAttribute @entity(immutable: true) {
+  id: Bytes!
+  service: AgentFileService!
+  position: Int!
+  key: String!
+  value: String!
+  valueType: AgentServiceAttributeType!
+}
+
+type AgentFileRegistrationReference @entity(immutable: true) {
+  id: Bytes!
+  registration: AgentRegistrationFile!
+  position: Int!
+  agentRegistry: String!
+  namespace: String
+  chainId: String
+  registryAddress: String
+  agentId: BigInt
+}
+
+type AgentFileTrust @entity(immutable: true) {
+  id: Bytes!
+  registration: AgentRegistrationFile!
+  position: Int!
+  kind: TrustKind!
+  name: String!
+}
+
 # Mutable current state of one feedback item.
 # ID: reputation registry + agent ID + client address + feedback index.
 type Feedback @entity(immutable: false) {
@@ -342,7 +496,7 @@ type Feedback @entity(immutable: false) {
   feedbackURIKind: URIKind!
   feedbackHash: Bytes!
   hasFeedbackHash: Boolean!
-  document: FeedbackDocument
+  document: FeedbackDocumentData
 
   isRevoked: Boolean!
   revokedAt: Timestamp
@@ -372,9 +526,10 @@ type FeedbackResponse @entity(immutable: true) {
   logIndex: BigInt!
 }
 
-# Parsed feedbackURI contents. `feedbackId` is a scalar rather than a reverse
-# relation because file data sources are isolated from mutable onchain entities.
-type FeedbackDocument @entity(immutable: true) {
+# Parsed data: feedbackURI contents. Chain handlers own this entity tree. The ID
+# is keccak256(feedback ID + source URI), so two feedback records may reuse one
+# URI without sharing a document entity.
+type FeedbackDocument implements FeedbackDocumentData @entity(immutable: true) {
   id: Bytes!
   feedbackId: Bytes!
   sourceURI: String!
@@ -392,16 +547,26 @@ type FeedbackDocument @entity(immutable: true) {
   tag2: String
   endpoint: String
 
+  # reasoning, context, task, and flat skill/domain/capability fields come from
+  # the 8004scan v2 profile. Nested EIP-8004 arrays and MCP values are stored as
+  # FeedbackDocumentFeature rows.
   reasoning: String
-  skill: String
-  domain: String
   context: String
   task: String
-  capability: String
-  capabilityName: String
+  a2aContextId: String
+  a2aTaskId: String
 
   proofOfPayment: PaymentProof
   attachments: [FeedbackAttachment!]! @derivedFrom(field: "document")
+  features: [FeedbackDocumentFeature!]! @derivedFrom(field: "document")
+}
+
+type FeedbackDocumentFeature @entity(immutable: true) {
+  id: Bytes!
+  document: FeedbackDocument!
+  position: Int!
+  kind: FeedbackFeatureKind!
+  value: String!
 }
 
 type PaymentProof @entity(immutable: true) {
@@ -422,6 +587,74 @@ type PaymentProof @entity(immutable: true) {
 type FeedbackAttachment @entity(immutable: true) {
   id: Bytes!
   document: FeedbackDocument!
+  position: Int!
+  name: String!
+  uri: String!
+  uriKind: URIKind!
+  mimeType: String!
+  size: BigInt
+  description: String
+  uploadedAt: String
+}
+
+# File handlers receive `feedbackId` in DataSourceContext. The ID uses the same
+# feedback ID + source URI rule as the data: document above. A repeated IPFS or
+# Arweave URI therefore creates one document per feedback record.
+type FeedbackDocumentFile implements FeedbackDocumentData @entity(immutable: true) {
+  id: Bytes!
+  feedbackId: Bytes!
+  sourceURI: String!
+  sourceURIKind: URIKind!
+  contentHash: Bytes
+  rawJSON: String!
+
+  agentRegistry: String
+  agentId: BigInt
+  clientAddress: String
+  createdAt: String
+  value: BigDecimal
+  valueDecimals: Int
+  tag1: String
+  tag2: String
+  endpoint: String
+
+  reasoning: String
+  context: String
+  task: String
+  a2aContextId: String
+  a2aTaskId: String
+
+  proofOfPayment: FilePaymentProof
+  attachments: [FileFeedbackAttachment!]! @derivedFrom(field: "document")
+  features: [FeedbackFileFeature!]! @derivedFrom(field: "document")
+}
+
+type FeedbackFileFeature @entity(immutable: true) {
+  id: Bytes!
+  document: FeedbackDocumentFile!
+  position: Int!
+  kind: FeedbackFeatureKind!
+  value: String!
+}
+
+type FilePaymentProof @entity(immutable: true) {
+  id: Bytes!
+  document: FeedbackDocumentFile!
+  fromAddress: String
+  toAddress: String
+  chainId: String
+  transactionHash: String
+  transactionSignature: String
+  amount: String
+  currency: String
+  protocol: String
+  timestamp: String
+  decimals: Int
+}
+
+type FileFeedbackAttachment @entity(immutable: true) {
+  id: Bytes!
+  document: FeedbackDocumentFile!
   position: Int!
   name: String!
   uri: String!

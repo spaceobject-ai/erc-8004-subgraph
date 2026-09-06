@@ -37,6 +37,18 @@ prompt, skill, or domain. Queries can filter those values directly.
 `AgentServiceAttribute` stores custom service fields that do not have a named
 field in the schema.
 
+`FeedbackDocumentFeature` and `FeedbackFileFeature` store every A2A skill, OASF
+skill, OASF domain, and MCP value as its own row. They accept both the nested
+fields in ERC-8004 and the flat `skill`, `domain`, `capability`, and `name`
+fields in the 8004scan v2 profile. The parser uses these mappings:
+
+- `a2a.skills` becomes `A2A_SKILL`
+- `oasf.skills` becomes `OASF_SKILL`
+- `oasf.domains` and flat `domain` become `OASF_DOMAIN`
+- Flat `skill` becomes `SKILL`
+- Flat `capability` becomes `MCP_CAPABILITY`
+- MCP tool, prompt, resource, and completion names use their matching MCP kind
+
 The Graph does not support schema-less entity fields. Dynamic data sources can
 discover files or contracts at runtime, but `schema.graphql` must declare every
 stored field. The Graph generates filters for scalar fields and has no custom
@@ -44,10 +56,16 @@ database-index directive. The schema stores commonly filtered values in their
 own fields and adds ranked text search for profiles, services, and feedback
 documents.
 
-Content-addressed IPFS and Arweave documents should use file data source
-templates. Parse `data:` URIs in the chain event handler. Public Graph Network
-indexers cannot deterministically fetch arbitrary HTTP or HTTPS documents, so
-those records retain the URI but will not have parsed document entities.
+Chain handlers parse `data:` URIs into `AgentRegistration` and
+`FeedbackDocument`. These are the primary document types. IPFS and Arweave file
+handlers use the parallel `AgentRegistrationFile` and `FeedbackDocumentFile`
+trees because The Graph does not let chain and file handlers write the same
+entity types. `Agent.registration` and `Feedback.document` accept either type
+through GraphQL interfaces.
+
+Public Graph Network indexers cannot fetch arbitrary HTTP or HTTPS documents in
+a deterministic way. Those records retain the URI but do not get parsed
+document entities.
 
 ## Install
 
