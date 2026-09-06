@@ -37,10 +37,10 @@ prompt, skill, or domain. Queries can filter those values directly.
 `AgentServiceAttribute` stores custom service fields that do not have a named
 field in the schema.
 
-`FeedbackDocumentFeature` and `FeedbackFileFeature` store every A2A skill, OASF
-skill, OASF domain, and MCP value as its own row. They accept both the nested
-fields in ERC-8004 and the flat `skill`, `domain`, `capability`, and `name`
-fields in the 8004scan v2 profile. The parser uses these mappings:
+`FeedbackDocumentFeature` and `FeedbackDocumentFeatureFile` store every A2A
+skill, OASF skill, OASF domain, and MCP value as its own row. They accept both
+the nested fields in ERC-8004 and the flat `skill`, `domain`, `capability`, and
+`name` fields in the 8004scan v2 profile. The parser uses these mappings:
 
 - `a2a.skills` becomes `A2A_SKILL`
 - `oasf.skills` becomes `OASF_SKILL`
@@ -61,7 +61,9 @@ Chain handlers parse `data:` URIs into `AgentRegistration` and
 handlers use the parallel `AgentRegistrationFile` and `FeedbackDocumentFile`
 trees because The Graph does not let chain and file handlers write the same
 entity types. `Agent.registration` and `Feedback.document` accept either type
-through GraphQL interfaces.
+through the `AgentRegistrationData` and `FeedbackDocumentData` interfaces.
+Every entity in a file-handler tree uses the corresponding primary entity name
+with a `File` suffix.
 
 Public Graph Network indexers cannot fetch arbitrary HTTP or HTTPS documents in
 a deterministic way. Those records retain the URI but do not get parsed

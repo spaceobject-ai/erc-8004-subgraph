@@ -6,7 +6,7 @@
   "scripts": {
     "build": "bun run typecheck && bun run ./scripts/deploy.ts arc-testnet --build-only",
     "deploy": "bun run ./scripts/deploy.ts",
-    "prepare": "vp config --no-agent",
+    "prepare": "vp config --no-agent --no-hooks",
     "ready": "vp check && vp run build",
     "typecheck": "tsc --noEmit"
   },

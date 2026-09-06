@@ -20,7 +20,7 @@ type _Schema_
     ]
   )
   @fulltext(
-    name: "agentFileProfileSearch"
+    name: "agentProfileFileSearch"
     language: en
     algorithm: rank
     include: [
@@ -28,12 +28,12 @@ type _Schema_
     ]
   )
   @fulltext(
-    name: "agentFileServiceSearch"
+    name: "agentServiceFileSearch"
     language: en
     algorithm: rank
     include: [
       {
-        entity: "AgentFileService"
+        entity: "AgentServiceFile"
         fields: [{ name: "name" }, { name: "description" }, { name: "endpoint" }]
       }
     ]
@@ -50,7 +50,7 @@ type _Schema_
     ]
   )
   @fulltext(
-    name: "feedbackFileSearch"
+    name: "feedbackDocumentFileSearch"
     language: en
     algorithm: rank
     include: [
@@ -122,7 +122,7 @@ enum FeedbackFeatureKind {
   CUSTOM
 }
 
-interface AgentRegistrationDocument {
+interface AgentRegistrationData {
   id: Bytes!
   sourceURI: String!
   sourceURIKind: URIKind!
@@ -215,7 +215,7 @@ type Agent @entity(immutable: false) {
   agentURI: String!
   agentURIKind: URIKind!
   uriRevision: BigInt!
-  registration: AgentRegistrationDocument
+  registration: AgentRegistrationData
 
   feedbackCount: BigInt!
   activeFeedbackCount: BigInt!
@@ -269,7 +269,7 @@ type AgentURIRevision @entity(immutable: true) {
   uri: String!
   uriKind: URIKind!
   updatedBy: Account!
-  registration: AgentRegistrationDocument
+  registration: AgentRegistrationData
   blockNumber: BigInt!
   timestamp: Timestamp!
   transactionHash: Bytes!
@@ -323,7 +323,7 @@ type AgentMetadataRevision @entity(immutable: true) {
 
 # Parsed data: agentURI contents. Chain handlers own this entity tree. The ID is
 # the hash of the complete source URI, so agents can share identical documents.
-type AgentRegistration implements AgentRegistrationDocument @entity(immutable: true) {
+type AgentRegistration implements AgentRegistrationData @entity(immutable: true) {
   id: Bytes!
   sourceURI: String!
   sourceURIKind: URIKind!
@@ -404,7 +404,7 @@ type AgentTrust @entity(immutable: true) {
 
 # IPFS and Arweave handlers cannot write the chain-owned entity types above.
 # This parallel tree gives file data sources their own immutable entity types.
-type AgentRegistrationFile implements AgentRegistrationDocument @entity(immutable: true) {
+type AgentRegistrationFile implements AgentRegistrationData @entity(immutable: true) {
   id: Bytes!
   sourceURI: String!
   sourceURIKind: URIKind!
@@ -420,12 +420,12 @@ type AgentRegistrationFile implements AgentRegistrationDocument @entity(immutabl
   metadataUpdatedAt: Timestamp
   usedLegacyEndpointsField: Boolean!
 
-  services: [AgentFileService!]! @derivedFrom(field: "registration")
-  registrations: [AgentFileRegistrationReference!]! @derivedFrom(field: "registration")
-  supportedTrust: [AgentFileTrust!]! @derivedFrom(field: "registration")
+  services: [AgentServiceFile!]! @derivedFrom(field: "registration")
+  registrations: [AgentRegistrationReferenceFile!]! @derivedFrom(field: "registration")
+  supportedTrust: [AgentTrustFile!]! @derivedFrom(field: "registration")
 }
 
-type AgentFileService @entity(immutable: true) {
+type AgentServiceFile @entity(immutable: true) {
   id: Bytes!
   registration: AgentRegistrationFile!
   position: Int!
@@ -436,28 +436,28 @@ type AgentFileService @entity(immutable: true) {
   description: String
   method: String
   capabilitiesInferred: Boolean!
-  features: [AgentFileServiceFeature!]! @derivedFrom(field: "service")
-  attributes: [AgentFileServiceAttribute!]! @derivedFrom(field: "service")
+  features: [AgentServiceFeatureFile!]! @derivedFrom(field: "service")
+  attributes: [AgentServiceAttributeFile!]! @derivedFrom(field: "service")
 }
 
-type AgentFileServiceFeature @entity(immutable: true) {
+type AgentServiceFeatureFile @entity(immutable: true) {
   id: Bytes!
-  service: AgentFileService!
+  service: AgentServiceFile!
   position: Int!
   kind: AgentServiceFeatureKind!
   value: String!
 }
 
-type AgentFileServiceAttribute @entity(immutable: true) {
+type AgentServiceAttributeFile @entity(immutable: true) {
   id: Bytes!
-  service: AgentFileService!
+  service: AgentServiceFile!
   position: Int!
   key: String!
   value: String!
   valueType: AgentServiceAttributeType!
 }
 
-type AgentFileRegistrationReference @entity(immutable: true) {
+type AgentRegistrationReferenceFile @entity(immutable: true) {
   id: Bytes!
   registration: AgentRegistrationFile!
   position: Int!
@@ -468,7 +468,7 @@ type AgentFileRegistrationReference @entity(immutable: true) {
   agentId: BigInt
 }
 
-type AgentFileTrust @entity(immutable: true) {
+type AgentTrustFile @entity(immutable: true) {
   id: Bytes!
   registration: AgentRegistrationFile!
   position: Int!
@@ -624,12 +624,12 @@ type FeedbackDocumentFile implements FeedbackDocumentData @entity(immutable: tru
   a2aContextId: String
   a2aTaskId: String
 
-  proofOfPayment: FilePaymentProof
-  attachments: [FileFeedbackAttachment!]! @derivedFrom(field: "document")
-  features: [FeedbackFileFeature!]! @derivedFrom(field: "document")
+  proofOfPayment: PaymentProofFile
+  attachments: [FeedbackAttachmentFile!]! @derivedFrom(field: "document")
+  features: [FeedbackDocumentFeatureFile!]! @derivedFrom(field: "document")
 }
 
-type FeedbackFileFeature @entity(immutable: true) {
+type FeedbackDocumentFeatureFile @entity(immutable: true) {
   id: Bytes!
   document: FeedbackDocumentFile!
   position: Int!
@@ -637,7 +637,7 @@ type FeedbackFileFeature @entity(immutable: true) {
   value: String!
 }
 
-type FilePaymentProof @entity(immutable: true) {
+type PaymentProofFile @entity(immutable: true) {
   id: Bytes!
   document: FeedbackDocumentFile!
   fromAddress: String
@@ -652,7 +652,7 @@ type FilePaymentProof @entity(immutable: true) {
   decimals: Int
 }
 
-type FileFeedbackAttachment @entity(immutable: true) {
+type FeedbackAttachmentFile @entity(immutable: true) {
   id: Bytes!
   document: FeedbackDocumentFile!
   position: Int!
