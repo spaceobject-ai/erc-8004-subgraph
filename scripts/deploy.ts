@@ -1,5 +1,5 @@
 import path from "node:path"
-import { chains } from "../config"
+import chains from "../chain.config.json"
 
 const options = parseArgs(Bun.argv.slice(2))
 

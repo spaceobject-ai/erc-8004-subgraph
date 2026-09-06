@@ -13,7 +13,7 @@ will listen for registry events but will not save data.
 abis/                    Event-only contract ABIs
 src/mapping.ts           Empty event handlers
 scripts/deploy.ts        Manifest generation, build, and deployment
-config.ts                Chain addresses and start blocks
+chain.config.json        Chain addresses and start blocks
 schema.graphql            Placeholder schema
 subgraph.template.yaml   Shared manifest template
 ```
@@ -30,7 +30,7 @@ bun install
 
 ## Configure a chain
 
-Chain settings live in `config.ts`. Each entry needs:
+Chain settings live in `chain.config.json`. Each entry needs:
 
 * The Graph network identifier
 * The numeric chain ID
@@ -41,25 +41,27 @@ chain ID `5042002`.
 
 To add a chain, copy an existing entry and change its key and values.
 
-```ts
-"another-testnet": {
-  network: "the-graph-network-id",
-  chainId: 123,
-  contracts: {
-    identity: {
-      address: "0x...",
-      startBlock: 100,
-    },
-    reputation: {
-      address: "0x...",
-      startBlock: 100,
-    },
-    validation: {
-      address: "0x...",
-      startBlock: 100,
-    },
-  },
-},
+```json
+{
+  "another-testnet": {
+    "network": "the-graph-network-id",
+    "chainId": 123,
+    "contracts": {
+      "identity": {
+        "address": "0x...",
+        "startBlock": 100
+      },
+      "reputation": {
+        "address": "0x...",
+        "startBlock": 100
+      },
+      "validation": {
+        "address": "0x...",
+        "startBlock": 100
+      }
+    }
+  }
+}
 ```
 
 Use the identifier listed on The Graph's
@@ -122,5 +124,5 @@ the command again.
 
 Replace `IndexingPlaceholder` in `schema.graphql` with the entities the
 application will query. Then fill in the handlers in `src/mapping.ts`. Keep
-chain addresses in `config.ts` so every deployment still uses the same
+chain addresses in `chain.config.json` so every deployment still uses the same
 template and command.

@@ -1,0 +1,38 @@
+{
+  "arc-testnet": {
+    "network": "arc-testnet",
+    "chainId": 5042002,
+    "contracts": {
+      "identity": {
+        "address": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+        "startBlock": 29241340
+      },
+      "reputation": {
+        "address": "0x8004B663056A597Dffe9eCcC1965A193B7388713",
+        "startBlock": 29241344
+      },
+      "validation": {
+        "address": "0x8004Cb1BF31DAf7788923b405b754f57acEB4272",
+        "startBlock": 29241349
+      }
+    }
+  },
+  "base-sepolia": {
+    "network": "base-sepolia",
+    "chainId": 84532,
+    "contracts": {
+      "identity": {
+        "address": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+        "startBlock": 36304145
+      },
+      "reputation": {
+        "address": "0x8004B663056A597Dffe9eCcC1965A193B7388713",
+        "startBlock": 36304146
+      },
+      "validation": {
+        "address": "0x8004Cb1BF31DAf7788923b405b754f57acEB4272",
+        "startBlock": 36304147
+      }
+    }
+  }
+}
