@@ -5,12 +5,12 @@ import {
   Registered,
   Transfer,
   URIUpdated,
-} from "../generated/IdentityRegistry/IdentityRegistry"
+} from "../generated/IdentityRegistry/IdentityRegistry";
 import {
   FeedbackRevoked,
   NewFeedback,
   ResponseAppended,
-} from "../generated/ReputationRegistry/ReputationRegistry"
+} from "../generated/ReputationRegistry/ReputationRegistry";
 
 // Validation Registry is still changing. Keep these imports and handlers next
 // to the active mappings so re-enabling the data source does not require
@@ -19,25 +19,25 @@ import {
 // import {
 //   ValidationRequest,
 //   ValidationResponse,
-// } from "../generated/ValidationRegistry/ValidationRegistry"
+// } from "../generated/ValidationRegistry/ValidationRegistry";
 
-export function handleRegistered(event: Registered): void {}
+export function handleRegistered(_event: Registered): void {}
 
-export function handleMetadataSet(event: MetadataSet): void {}
+export function handleMetadataSet(_event: MetadataSet): void {}
 
-export function handleURIUpdated(event: URIUpdated): void {}
+export function handleURIUpdated(_event: URIUpdated): void {}
 
-export function handleTransfer(event: Transfer): void {}
+export function handleTransfer(_event: Transfer): void {}
 
-export function handleApproval(event: Approval): void {}
+export function handleApproval(_event: Approval): void {}
 
-export function handleApprovalForAll(event: ApprovalForAll): void {}
+export function handleApprovalForAll(_event: ApprovalForAll): void {}
 
-export function handleNewFeedback(event: NewFeedback): void {}
+export function handleNewFeedback(_event: NewFeedback): void {}
 
-export function handleFeedbackRevoked(event: FeedbackRevoked): void {}
+export function handleFeedbackRevoked(_event: FeedbackRevoked): void {}
 
-export function handleResponseAppended(event: ResponseAppended): void {}
+export function handleResponseAppended(_event: ResponseAppended): void {}
 
 // export function handleValidationRequest(event: ValidationRequest): void {}
 //

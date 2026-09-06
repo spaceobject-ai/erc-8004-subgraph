@@ -51,20 +51,42 @@ those records retain the URI but will not have parsed document entities.
 
 ## Install
 
-Install [Bun](https://bun.sh/), then install the project packages.
+Install the [Vite+ CLI](https://viteplus.dev/guide/). Vite+ installs the pinned
+Bun version and uses it as this project's package manager.
 
 ```sh
-bun install
+curl -fsSL https://vite.plus | bash
+vp install
+```
+
+Installing dependencies also configures the pre-commit hook. It formats and
+lints staged files with Oxfmt and Oxlint. Run `vp hooks status` if the hook does
+not run in your clone.
+
+## Quality checks
+
+Run formatting and non-type-aware linting:
+
+```sh
+vp check
+```
+
+The subgraph mappings are AssemblyScript, so `graph build` remains their
+authoritative compiler check. Run all quality checks and build the default Arc
+Testnet subgraph before opening a pull request:
+
+```sh
+vp run ready
 ```
 
 ## Configure a chain
 
 Chain settings live in `chain.config.json`. Each entry needs:
 
-* The Graph network identifier
-* The numeric chain ID
-* The Identity Registry address and start block
-* The Reputation Registry address and start block
+- The Graph network identifier
+- The numeric chain ID
+- The Identity Registry address and start block
+- The Reputation Registry address and start block
 
 The Validation Registry address and start block are optional. The deploy script
 does not read them while that data source is disabled. Existing entries remain
@@ -109,7 +131,7 @@ This command generates `.generated/arc-testnet/subgraph.yaml`, runs codegen,
 and builds the mapping. It does not deploy anything.
 
 ```sh
-bun run check
+vp run build
 ```
 
 The same check can target another configured chain.

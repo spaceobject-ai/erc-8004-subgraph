@@ -1,0 +1,16 @@
+name: Ready
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ready:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: voidzero-dev/setup-vp@v1.18.0
+        with:
+          cache: true
+      - run: vp install
+      - run: vp run ready

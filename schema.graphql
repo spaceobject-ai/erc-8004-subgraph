@@ -6,12 +6,7 @@ type _Schema_
     name: "agentProfileSearch"
     language: en
     algorithm: rank
-    include: [
-      {
-        entity: "AgentRegistration"
-        fields: [{ name: "name" }, { name: "description" }]
-      }
-    ]
+    include: [{ entity: "AgentRegistration", fields: [{ name: "name" }, { name: "description" }] }]
   )
   @fulltext(
     name: "agentServiceSearch"
@@ -20,11 +15,7 @@ type _Schema_
     include: [
       {
         entity: "AgentService"
-        fields: [
-          { name: "name" }
-          { name: "description" }
-          { name: "endpoint" }
-        ]
+        fields: [{ name: "name" }, { name: "description" }, { name: "endpoint" }]
       }
     ]
   )
@@ -35,11 +26,7 @@ type _Schema_
     include: [
       {
         entity: "FeedbackDocument"
-        fields: [
-          { name: "reasoning" }
-          { name: "context" }
-          { name: "task" }
-        ]
+        fields: [{ name: "reasoning" }, { name: "context" }, { name: "task" }]
       }
     ]
   )
@@ -163,8 +150,7 @@ type Agent @entity(immutable: false) {
   uriRevisions: [AgentURIRevision!]! @derivedFrom(field: "agent")
   transfers: [AgentTransfer!]! @derivedFrom(field: "agent")
   approvals: [AgentApprovalChange!]! @derivedFrom(field: "agent")
-  metadataRevisions: [AgentMetadataRevision!]!
-    @derivedFrom(field: "agent")
+  metadataRevisions: [AgentMetadataRevision!]! @derivedFrom(field: "agent")
   feedback: [Feedback!]! @derivedFrom(field: "agent")
 }
 
@@ -274,8 +260,7 @@ type AgentRegistration @entity(immutable: true) {
   usedLegacyEndpointsField: Boolean!
 
   services: [AgentService!]! @derivedFrom(field: "registration")
-  registrations: [AgentRegistrationReference!]!
-    @derivedFrom(field: "registration")
+  registrations: [AgentRegistrationReference!]! @derivedFrom(field: "registration")
   supportedTrust: [AgentTrust!]! @derivedFrom(field: "registration")
 }
 
@@ -461,28 +446,22 @@ type FeedbackMetricPoint @entity(timeseries: true) {
   valueDelta: BigDecimal!
 }
 
-type AgentFeedbackStats
-  @aggregation(intervals: ["hour", "day"], source: "FeedbackMetricPoint") {
+type AgentFeedbackStats @aggregation(intervals: ["hour", "day"], source: "FeedbackMetricPoint") {
   id: Int8!
   timestamp: Timestamp!
   agent: Agent!
   tag1: String!
   tag2: String!
-  feedbackCount: BigInt!
-    @aggregate(fn: "sum", arg: "feedbackCountDelta", cumulative: true)
-  valueSum: BigDecimal!
-    @aggregate(fn: "sum", arg: "valueDelta", cumulative: true)
+  feedbackCount: BigInt! @aggregate(fn: "sum", arg: "feedbackCountDelta", cumulative: true)
+  valueSum: BigDecimal! @aggregate(fn: "sum", arg: "valueDelta", cumulative: true)
 }
 
-type RegistryFeedbackStats
-  @aggregation(intervals: ["hour", "day"], source: "FeedbackMetricPoint") {
+type RegistryFeedbackStats @aggregation(intervals: ["hour", "day"], source: "FeedbackMetricPoint") {
   id: Int8!
   timestamp: Timestamp!
   registry: ReputationRegistry!
   tag1: String!
   tag2: String!
-  feedbackCount: BigInt!
-    @aggregate(fn: "sum", arg: "feedbackCountDelta", cumulative: true)
-  valueSum: BigDecimal!
-    @aggregate(fn: "sum", arg: "valueDelta", cumulative: true)
+  feedbackCount: BigInt! @aggregate(fn: "sum", arg: "feedbackCountDelta", cumulative: true)
+  valueSum: BigDecimal! @aggregate(fn: "sum", arg: "valueDelta", cumulative: true)
 }
