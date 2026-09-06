@@ -1,0 +1,120 @@
+import path from "node:path"
+import { chains } from "../config"
+
+const options = parseArgs(Bun.argv.slice(2))
+
+for (const target of options.targets) {
+  const chain = requireChain(target.chain)
+  const manifest = await generateManifest(target.chain, chain)
+
+  console.log(`\nBuilding ${target.chain} (${chain.chainId})`)
+  await run(["bunx", "graph", "codegen", manifest])
+  await run(["bunx", "graph", "build", manifest])
+
+  if (options.buildOnly) continue
+
+  console.log(`Deploying ${target.chain} to ${target.slug}`)
+  await run([
+    "bunx",
+    "graph",
+    "deploy",
+    target.slug,
+    manifest,
+    "--node",
+    "https://api.studio.thegraph.com/deploy/",
+    "--version-label",
+    options.version,
+  ])
+}
+
+function parseArgs(args: string[]) {
+  const versionIndex = args.indexOf("--version")
+  const version = versionIndex === -1 ? "dev" : args[versionIndex + 1]
+  const buildOnly = args.includes("--build-only")
+
+  if (!version) fail("Pass a value after --version.")
+
+  const targets = args
+    .filter((argument, index) => {
+      if (argument === "--build-only" || argument === "--version") return false
+      return versionIndex === -1 || index !== versionIndex + 1
+    })
+    .map((argument) => {
+      const [chain, slug, extra] = argument.split("=")
+
+      if (!chain || extra !== undefined) {
+        fail(`Invalid target "${argument}". Use chain=studio-slug.`)
+      }
+
+      if (!buildOnly && !slug) {
+        fail(`Missing Studio slug for "${chain}". Use ${chain}=studio-slug.`)
+      }
+
+      return { chain, slug: slug ?? "" }
+    })
+
+  if (targets.length === 0) fail("Pass at least one chain.")
+
+  return { buildOnly, targets, version }
+}
+
+function requireChain(name: string) {
+  if (!(name in chains)) {
+    fail(`Unknown chain "${name}". Available chains: ${Object.keys(chains).join(", ")}.`)
+  }
+
+  return chains[name as keyof typeof chains]
+}
+
+async function generateManifest(
+  name: string,
+  chain: (typeof chains)[keyof typeof chains],
+) {
+  const replacements = {
+    network: chain.network,
+    identityAddress: chain.contracts.identity.address,
+    identityStartBlock: chain.contracts.identity.startBlock,
+    reputationAddress: chain.contracts.reputation.address,
+    reputationStartBlock: chain.contracts.reputation.startBlock,
+    validationAddress: chain.contracts.validation.address,
+    validationStartBlock: chain.contracts.validation.startBlock,
+  }
+  const template = await Bun.file("subgraph.template.yaml").text()
+  const manifest = Object.entries(replacements).reduce(
+    (contents, [key, value]) =>
+      contents.replaceAll(`{{${key}}}`, String(value)),
+    template,
+  )
+  const output = path.join(".generated", name, "subgraph.yaml")
+
+  if (manifest.includes("{{")) fail("The manifest has an unknown template value.")
+
+  await Bun.write(output, manifest)
+  return output
+}
+
+async function run(command: string[]) {
+  const process = Bun.spawn(command, {
+    stdin: "inherit",
+    stdout: "inherit",
+    stderr: "inherit",
+  })
+
+  if ((await process.exited) !== 0) process.exit(1)
+}
+
+function fail(message: string): never {
+  console.error(`
+${message}
+
+Build Arc Testnet:
+  bun run deploy -- arc-testnet --build-only
+
+Deploy one chain:
+  bun run deploy -- arc-testnet=studio-slug --version v0.1.0
+
+Deploy several chains:
+  bun run deploy -- arc-testnet=arc-slug base-sepolia=base-slug --version v0.1.0
+`)
+  process.exit(1)
+}

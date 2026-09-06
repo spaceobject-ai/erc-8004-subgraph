@@ -1,0 +1,3 @@
+type IndexingPlaceholder @entity(immutable: true) {
+  id: Bytes!
+}

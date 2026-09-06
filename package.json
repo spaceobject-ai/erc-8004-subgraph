@@ -1,0 +1,17 @@
+{
+  "name": "erc-8004-subgraph",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "bun run ./scripts/deploy.ts arc-testnet --build-only",
+    "deploy": "bun run ./scripts/deploy.ts"
+  },
+  "dependencies": {
+    "@graphprotocol/graph-cli": "0.98.1",
+    "@graphprotocol/graph-ts": "0.38.2"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0"
+  }
+}
