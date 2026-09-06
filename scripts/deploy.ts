@@ -1,4 +1,3 @@
-import path from "node:path";
 import chains from "../chain.config.json";
 
 const options = parseArgs(Bun.argv.slice(2));
@@ -69,34 +68,34 @@ function requireChain(name: string) {
 async function generateManifest(name: string, chain: (typeof chains)[keyof typeof chains]) {
   const replacements = {
     network: chain.network,
+    chainId: chain.chainId,
     identityAddress: chain.contracts.identity.address,
     identityStartBlock: chain.contracts.identity.startBlock,
     reputationAddress: chain.contracts.reputation.address,
     reputationStartBlock: chain.contracts.reputation.startBlock,
-    validationAddress: chain.contracts.validation.address,
-    validationStartBlock: chain.contracts.validation.startBlock,
   };
   const template = await Bun.file("subgraph.template.yaml").text();
   const manifest = Object.entries(replacements).reduce(
     (contents, [key, value]) => contents.replaceAll(`{{${key}}}`, String(value)),
     template,
   );
-  const output = path.join(".generated", name, "subgraph.yaml");
+  const output = `.generated/${name}/subgraph.yaml`;
 
-  if (manifest.includes("{{")) fail("The manifest has an unknown template value.");
+  if (manifest.split("\n").some((line) => !line.trimStart().startsWith("#") && line.includes("{{")))
+    fail("The manifest has an unknown template value.");
 
   await Bun.write(output, manifest);
   return output;
 }
 
 async function run(command: string[]) {
-  const process = Bun.spawn(command, {
+  const subprocess = Bun.spawn(command, {
     stdin: "inherit",
     stdout: "inherit",
     stderr: "inherit",
   });
 
-  if ((await process.exited) !== 0) process.exit(1);
+  if ((await subprocess.exited) !== 0) process.exit(1);
 }
 
 function fail(message: string): never {

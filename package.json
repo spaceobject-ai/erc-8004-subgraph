@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun run ./scripts/deploy.ts arc-testnet --build-only",
+    "build": "bun run typecheck && bun run ./scripts/deploy.ts arc-testnet --build-only",
     "deploy": "bun run ./scripts/deploy.ts",
-    "prepare": "vp config --no-agent",
-    "ready": "vp check && vp run build"
+    "prepare": "vp config --no-agent --no-hooks",
+    "ready": "vp check && vp run build",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@graphprotocol/graph-cli": "0.98.1",
@@ -15,6 +16,7 @@
   },
   "devDependencies": {
     "@types/bun": "^1.2.0",
+    "typescript": "^5.9.3",
     "vite-plus": "0.3.0"
   },
   "devEngines": {

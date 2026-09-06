@@ -11,10 +11,15 @@ import {
   NewFeedback,
   ResponseAppended,
 } from "../generated/ReputationRegistry/ReputationRegistry";
-import {
-  ValidationRequest,
-  ValidationResponse,
-} from "../generated/ValidationRegistry/ValidationRegistry";
+
+// Validation Registry is still changing. Keep these imports and handlers next
+// to the active mappings so re-enabling the data source does not require
+// digging through Git history.
+//
+// import {
+//   ValidationRequest,
+//   ValidationResponse,
+// } from "../generated/ValidationRegistry/ValidationRegistry";
 
 export function handleRegistered(_event: Registered): void {}
 
@@ -34,6 +39,6 @@ export function handleFeedbackRevoked(_event: FeedbackRevoked): void {}
 
 export function handleResponseAppended(_event: ResponseAppended): void {}
 
-export function handleValidationRequest(_event: ValidationRequest): void {}
-
-export function handleValidationResponse(_event: ValidationResponse): void {}
+// export function handleValidationRequest(event: ValidationRequest): void {}
+//
+// export function handleValidationResponse(event: ValidationResponse): void {}
