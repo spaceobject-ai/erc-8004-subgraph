@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "bun run ./scripts/deploy.ts arc-testnet --build-only",
+    "check": "bun run typecheck && bun run ./scripts/deploy.ts arc-testnet --build-only",
+    "typecheck": "tsc --noEmit",
     "deploy": "bun run ./scripts/deploy.ts"
   },
   "dependencies": {
@@ -12,6 +13,7 @@
     "@graphprotocol/graph-ts": "0.38.2"
   },
   "devDependencies": {
-    "@types/bun": "^1.2.0"
+    "@types/bun": "^1.2.0",
+    "typescript": "^5.9.3"
   }
 }

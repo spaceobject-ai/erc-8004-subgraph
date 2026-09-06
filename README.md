@@ -1,8 +1,11 @@
 # ERC-8004 subgraph
 
-This repository is a small starting point for an ERC-8004 subgraph. Arc Testnet
-is the default target. Base Sepolia is included to show how the same manifest
-can be built and deployed for more than one chain.
+This repository is a starting point for indexing the stable ERC-8004 Identity
+and Reputation registries. Arc Testnet is the default target. Base Sepolia is
+included to show how the same manifest can be built and deployed for more than
+one chain. The Validation Registry ABI, addresses, and commented mapping setup
+remain in the repository, but builds do not index it while its interface is
+unstable.
 
 The event handlers are empty on purpose. Deployments made from this version
 will listen for registry events but will not save data.
@@ -14,11 +17,37 @@ abis/                    Event-only contract ABIs
 src/mapping.ts           Empty event handlers
 scripts/deploy.ts        Manifest generation, build, and deployment
 chain.config.json        Chain addresses and start blocks
-schema.graphql            Placeholder schema
+schema.graphql           Identity and reputation query model
 subgraph.template.yaml   Shared manifest template
 ```
 
 There is no `utils` directory. Add one when the mappings need shared code.
+
+## Schema design
+
+`Agent` and `Feedback` hold mutable current state. Event audit records, parsed
+registration and feedback documents, services, service features, attachments,
+and responses are immutable. Reverse collections use `@derivedFrom` so parent
+entities do not accumulate unbounded arrays.
+
+Each `AgentService` keeps the name supplied by the agent card. The mapping
+assigns a known service to `AgentService.kind` and assigns unknown names to
+`CUSTOM`. One `AgentServiceFeature` row stores one capability, tool, resource,
+prompt, skill, or domain. Queries can filter those values directly.
+`AgentServiceAttribute` stores custom service fields that do not have a named
+field in the schema.
+
+The Graph does not support schema-less entity fields. Dynamic data sources can
+discover files or contracts at runtime, but `schema.graphql` must declare every
+stored field. The Graph generates filters for scalar fields and has no custom
+database-index directive. The schema stores commonly filtered values in their
+own fields and adds ranked text search for profiles, services, and feedback
+documents.
+
+Content-addressed IPFS and Arweave documents should use file data source
+templates. Parse `data:` URIs in the chain event handler. Public Graph Network
+indexers cannot deterministically fetch arbitrary HTTP or HTTPS documents, so
+those records retain the URI but will not have parsed document entities.
 
 ## Install
 
@@ -34,7 +63,12 @@ Chain settings live in `chain.config.json`. Each entry needs:
 
 * The Graph network identifier
 * The numeric chain ID
-* The address and start block for all three ERC-8004 registries
+* The Identity Registry address and start block
+* The Reputation Registry address and start block
+
+The Validation Registry address and start block are optional. The deploy script
+does not read them while that data source is disabled. Existing entries remain
+in the config for later use.
 
 Arc Testnet is already configured with The Graph identifier `arc-testnet` and
 chain ID `5042002`.
@@ -122,7 +156,7 @@ the command again.
 
 ## Add indexing later
 
-Replace `IndexingPlaceholder` in `schema.graphql` with the entities the
-application will query. Then fill in the handlers in `src/mapping.ts`. Keep
-chain addresses in `chain.config.json` so every deployment still uses the same
-template and command.
+Fill in the handlers in `src/mapping.ts`, including file data source templates
+for content-addressed agent and feedback documents. Keep chain addresses in
+`chain.config.json` so every deployment still uses the same template and
+command.

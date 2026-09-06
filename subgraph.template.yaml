@@ -1,6 +1,8 @@
 specVersion: 1.3.0
 schema:
   file: ../../schema.graphql
+features:
+  - fullTextSearch
 indexerHints:
   prune: auto
 dataSources:
@@ -11,12 +13,25 @@ dataSources:
       address: "{{identityAddress}}"
       abi: IdentityRegistry
       startBlock: {{identityStartBlock}}
+    context:
+      chainId:
+        type: BigInt
+        data: "{{chainId}}"
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
-        - IndexingPlaceholder
+        - Account
+        - IdentityRegistry
+        - Agent
+        - AgentMetadata
+        - OperatorApproval
+        - AgentURIRevision
+        - AgentTransfer
+        - AgentApprovalChange
+        - OperatorApprovalChange
+        - AgentMetadataRevision
       abis:
         - name: IdentityRegistry
           file: ../../abis/IdentityRegistry.json
@@ -41,12 +56,21 @@ dataSources:
       address: "{{reputationAddress}}"
       abi: ReputationRegistry
       startBlock: {{reputationStartBlock}}
+    context:
+      chainId:
+        type: BigInt
+        data: "{{chainId}}"
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
-        - IndexingPlaceholder
+        - Account
+        - ReputationRegistry
+        - Agent
+        - Feedback
+        - FeedbackResponse
+        - FeedbackMetricPoint
       abis:
         - name: ReputationRegistry
           file: ../../abis/ReputationRegistry.json
@@ -58,25 +82,33 @@ dataSources:
         - event: ResponseAppended(indexed uint256,indexed address,uint64,indexed address,string,bytes32)
           handler: handleResponseAppended
       file: ../../src/mapping.ts
-  - kind: ethereum
-    name: ValidationRegistry
-    network: {{network}}
-    source:
-      address: "{{validationAddress}}"
-      abi: ValidationRegistry
-      startBlock: {{validationStartBlock}}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.9
-      language: wasm/assemblyscript
-      entities:
-        - IndexingPlaceholder
-      abis:
-        - name: ValidationRegistry
-          file: ../../abis/ValidationRegistry.json
-      eventHandlers:
-        - event: ValidationRequest(indexed address,indexed uint256,string,indexed bytes32)
-          handler: handleValidationRequest
-        - event: ValidationResponse(indexed address,indexed uint256,indexed bytes32,uint8,string,bytes32,string)
-          handler: handleValidationResponse
-      file: ../../src/mapping.ts
+
+# Validation Registry is disabled until its interface settles. Before enabling
+# this block, add its entities to schema.graphql, restore its replacements in
+# scripts/deploy.ts, and uncomment the matching imports and handlers.
+#
+#  - kind: ethereum
+#    name: ValidationRegistry
+#    network: {{network}}
+#    source:
+#      address: "{{validationAddress}}"
+#      abi: ValidationRegistry
+#      startBlock: {{validationStartBlock}}
+#    context:
+#      chainId:
+#        type: BigInt
+#        data: "{{chainId}}"
+#    mapping:
+#      kind: ethereum/events
+#      apiVersion: 0.0.9
+#      language: wasm/assemblyscript
+#      entities: []
+#      abis:
+#        - name: ValidationRegistry
+#          file: ../../abis/ValidationRegistry.json
+#      eventHandlers:
+#        - event: ValidationRequest(indexed address,indexed uint256,string,indexed bytes32)
+#          handler: handleValidationRequest
+#        - event: ValidationResponse(indexed address,indexed uint256,indexed bytes32,uint8,string,bytes32,string)
+#          handler: handleValidationResponse
+#      file: ../../src/mapping.ts
