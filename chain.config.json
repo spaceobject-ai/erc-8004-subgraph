@@ -1,19 +1,55 @@
 {
-  "arc-testnet": {
-    "network": "arc-testnet",
-    "chainId": 5042002,
+  "sepolia": {
+    "network": "sepolia",
+    "chainId": 11155111,
     "contracts": {
       "identity": {
         "address": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
-        "startBlock": 29241340
+        "startBlock": 9989393
       },
       "reputation": {
         "address": "0x8004B663056A597Dffe9eCcC1965A193B7388713",
-        "startBlock": 29241344
+        "startBlock": 9989394
       },
       "validation": {
         "address": "0x8004Cb1BF31DAf7788923b405b754f57acEB4272",
-        "startBlock": 29241349
+        "startBlock": 9989395
+      }
+    }
+  },
+  "mainnet": {
+    "network": "mainnet",
+    "chainId": 1,
+    "contracts": {
+      "identity": {
+        "address": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+        "startBlock": 24339871
+      },
+      "reputation": {
+        "address": "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
+        "startBlock": 24339873
+      },
+      "validation": {
+        "address": "0x8004Cb1BF31DAf7788923b405b754f57acEB4272",
+        "startBlock": 24204475
+      }
+    }
+  },
+  "base": {
+    "network": "base",
+    "chainId": 8453,
+    "contracts": {
+      "identity": {
+        "address": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+        "startBlock": 41663783
+      },
+      "reputation": {
+        "address": "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
+        "startBlock": 41663784
+      },
+      "validation": {
+        "address": "0x8004Cb1BF31DAf7788923b405b754f57acEB4272",
+        "startBlock": 41619242
       }
     }
   },
@@ -32,6 +68,38 @@
       "validation": {
         "address": "0x8004Cb1BF31DAf7788923b405b754f57acEB4272",
         "startBlock": 36304147
+      }
+    }
+  },
+  "arc": {
+    "network": "arc",
+    "chainId": 5042,
+    "contracts": {
+      "identity": {
+        "address": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+        "startBlock": 13344062
+      },
+      "reputation": {
+        "address": "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
+        "startBlock": 13344072
+      }
+    }
+  },
+  "arc-testnet": {
+    "network": "arc-testnet",
+    "chainId": 5042002,
+    "contracts": {
+      "identity": {
+        "address": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+        "startBlock": 29241340
+      },
+      "reputation": {
+        "address": "0x8004B663056A597Dffe9eCcC1965A193B7388713",
+        "startBlock": 29241344
+      },
+      "validation": {
+        "address": "0x8004Cb1BF31DAf7788923b405b754f57acEB4272",
+        "startBlock": 29241349
       }
     }
   }

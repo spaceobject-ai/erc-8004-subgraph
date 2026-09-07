@@ -32,9 +32,9 @@ beforeAll(() => {
   // Mirrors the `chainId` and `identityRegistry` context that
   // subgraph.template.yaml sets for the ReputationRegistry data source.
   const context = new DataSourceContext();
-  context.setBigInt("chainId", BigInt.fromI32(5042002));
+  context.setBigInt("chainId", BigInt.fromI32(11155111));
   context.setBytes("identityRegistry", IDENTITY_REGISTRY);
-  dataSourceMock.setReturnValues(REGISTRY.toHexString(), "arc-testnet", context);
+  dataSourceMock.setReturnValues(REGISTRY.toHexString(), "sepolia", context);
 });
 
 function baseEvent(logIndex: i32): ethereum.Event {

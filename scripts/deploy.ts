@@ -1,5 +1,7 @@
 import chains from "../chain.config.json";
 
+const DEFAULT_CHAIN = "sepolia";
+
 const options = parseArgs(Bun.argv.slice(2));
 
 for (const target of options.targets) {
@@ -52,9 +54,15 @@ function parseArgs(args: string[]) {
       return { chain, slug: slug ?? "" };
     });
 
-  if (targets.length === 0) fail("Pass at least one chain.");
+  if (targets.length === 0 && !buildOnly) fail("Pass at least one chain=studio-slug target.");
 
-  return { buildOnly, targets, version };
+  return {
+    buildOnly,
+    // A bare --build-only run builds the default chain so `bun run build` and
+    // the matchstick manifest path stay in sync.
+    targets: targets.length === 0 ? [{ chain: DEFAULT_CHAIN, slug: "" }] : targets,
+    version,
+  };
 }
 
 function requireChain(name: string) {
@@ -102,14 +110,19 @@ function fail(message: string): never {
   console.error(`
 ${message}
 
-Build Arc Testnet:
-  bun run deploy -- arc-testnet --build-only
+Build the default chain (${DEFAULT_CHAIN}):
+  bun run deploy -- --build-only
+
+Build another chain:
+  bun run deploy -- base --build-only
 
 Deploy one chain:
-  bun run deploy -- arc-testnet=studio-slug --version v0.1.0
+  bun run deploy -- sepolia=studio-slug --version v0.1.0
 
 Deploy several chains:
-  bun run deploy -- arc-testnet=arc-slug base-sepolia=base-slug --version v0.1.0
+  bun run deploy -- mainnet=mainnet-slug base=base-slug --version v0.1.0
+
+Available chains: ${Object.keys(chains).join(", ")}.
 `);
   process.exit(1);
 }

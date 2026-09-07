@@ -1,2 +1,2 @@
 testsFolder: ./src
-manifestPath: .generated/arc-testnet/subgraph.yaml
+manifestPath: .generated/sepolia/subgraph.yaml

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun run typecheck && bun run ./scripts/deploy.ts arc-testnet --build-only",
+    "build": "bun run typecheck && bun run ./scripts/deploy.ts sepolia --build-only",
     "deploy": "bun run ./scripts/deploy.ts",
     "prepare": "vp config --no-agent --no-hooks",
     "ready": "vp check && vp run build && vp run test",

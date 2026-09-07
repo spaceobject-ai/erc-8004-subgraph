@@ -1,160 +1,15 @@
 # ERC-8004 subgraph
 
-This repository indexes the stable ERC-8004 Identity and Reputation
-registries. Arc Testnet is the default target. Base Sepolia is included to
-show how the same manifest can be built and deployed for more than one chain.
-The Validation Registry ABI, addresses, and commented mapping setup remain in
-the repository, but builds do not index it while its interface is unstable.
+Indexes the ERC-8004 Identity and Reputation registries. Ethereum Sepolia is
+the default chain. `chain.config.json` also ships Ethereum, Base, Base
+Sepolia, Arc, and Arc Testnet as examples you can copy.
 
-## What is here
-
-```text
-abis/                       Event-only contract ABIs
-src/mapping.ts              Re-exports the handlers below for subgraph.yaml
-src/handlers/               One file per data source, plus its tests
-src/entities/               Entity lookup/create/save helpers, plus their tests
-src/utils/                  Pure parsing and formatting helpers, plus their tests
-scripts/deploy.ts           Manifest generation, build, and deployment
-chain.config.json           Chain addresses and start blocks
-schema.graphql              Identity and reputation query model
-subgraph.template.yaml      Shared manifest template
-matchstick.yaml             Matchstick test configuration
-tsconfig.json               TypeScript config for scripts/
-src/tsconfig.json           AssemblyScript config for editors in src/
-```
-
-Two tsconfigs, because the two directories are different languages.
-`scripts/deploy.ts` is Bun TypeScript and `bun run typecheck` checks it. The
-mappings in `src/` are AssemblyScript, where `i32`, `u8`, and the other value
-types are globals no standard TypeScript lib declares. `src/tsconfig.json`
-extends `../node_modules/assemblyscript/std/assembly.json` so editors resolve
-those globals. Editors pick the nearest tsconfig, so nothing else reads it.
-`graph build` and `graph test` still compile `src/`.
-
-## Schema design
-
-`Agent` and `Feedback` hold mutable current state. Event audit records, parsed
-registration and feedback documents, services, service features, attachments,
-and responses are immutable. Reverse collections use `@derivedFrom` so parent
-entities do not accumulate unbounded arrays.
-
-Each `AgentService` keeps the name supplied by the agent card. The mapping
-assigns a known service to `AgentService.kind` and assigns unknown names to
-`CUSTOM`. One `AgentServiceFeature` row stores one capability, tool, resource,
-prompt, skill, or domain. Queries can filter those values directly.
-`AgentServiceAttribute` stores custom service fields that do not have a named
-field in the schema.
-
-`FeedbackDocumentFeature` and `FeedbackDocumentFeatureFile` store every A2A
-skill, OASF skill, OASF domain, and MCP value as its own row. They accept both
-the nested fields in ERC-8004 and the flat `skill`, `domain`, `capability`, and
-`name` fields in the 8004scan v2 profile. The parser uses these mappings:
-
-- `a2a.skills` becomes `A2A_SKILL`
-- `oasf.skills` becomes `OASF_SKILL`
-- `oasf.domains` and flat `domain` become `OASF_DOMAIN`
-- Flat `skill` becomes `SKILL`
-- Flat `capability` becomes `MCP_CAPABILITY`
-- MCP tool, prompt, resource, and completion names use their matching MCP kind
-
-The Graph does not support schema-less entity fields. Dynamic data sources can
-discover files or contracts at runtime, but `schema.graphql` must declare every
-stored field. The Graph generates filters for scalar fields and has no custom
-database-index directive. The schema stores commonly filtered values in their
-own fields and adds ranked text search for profiles, services, and feedback
-documents.
-
-Chain handlers parse `data:` URIs into `AgentRegistration` and
-`FeedbackDocument`. These are the primary document types. IPFS and Arweave file
-handlers use the parallel `AgentRegistrationFile` and `FeedbackDocumentFile`
-trees because The Graph does not let chain and file handlers write the same
-entity types. `Agent.registration` and `Feedback.document` accept either type
-through the `AgentRegistrationData` and `FeedbackDocumentData` interfaces.
-Every entity in a file-handler tree uses the corresponding primary entity name
-with a `File` suffix.
-
-Public Graph Network indexers cannot fetch arbitrary HTTP or HTTPS documents in
-a deterministic way. Those records retain the URI but do not get parsed
-document entities. IPFS and Arweave documents are in the same position today:
-parsing them needs file data source templates, which are not set up yet. Until
-then, an IPFS or Arweave `agentURI` or
-`feedbackURI` is stored and classified, but `Agent.registration` and
-`Feedback.document` stay null for it.
-
-## Handlers
-
-`src/handlers/identity-registry.ts` and `src/handlers/reputation-registry.ts`
-implement every event in their manifests. `src/mapping.ts` only re-exports
-them, because `subgraph.yaml` handlers must live in the file it points at.
-
-Both handlers share code from two directories, split by whether a function
-touches the store:
-
-`src/utils/` holds pure functions: given the same input, they always return
-the same output and never read or write an entity.
-
-- `uri.ts` classifies a URI's scheme and decodes a `data:` payload.
-- `base64.ts` backs the `data:...;base64,` case (graph-ts has no built-in decoder).
-- `json.ts` reads untrusted `JSONValue` trees without ever letting a
-  malformed or adversarial document abort a handler. Number reads range-check
-  in `f64` before casting, because an out-of-range `as i32` or `as i64` traps
-  and kills the whole handler. Values past those limits, `Infinity` included,
-  either return null or fall back to `f64` rendering.
-- `caip.ts` reads and writes CAIP-10 identifiers (`eip155:<chainId>:<address>`).
-- `ids.ts` builds the `Agent` entity ID, the one thing both data sources need
-  to agree on to find each other's entities.
-
-`src/entities/` holds the functions built on top of those that load, create,
-and save entities:
-
-- `account.ts` loads or lazily creates the `Account` both data sources share.
-- `registration.ts` and `feedback-document.ts` parse a `data:` URI's JSON into
-  the entity trees described above, following the 8004scan community
-  profiles for agent metadata and feedback data.
-
-A few mapping choices from those community profiles were not fully specified
-and were resolved as follows; revisit them if real-world documents disagree:
-
-- `AgentService.capabilitiesInferred` is always `false`. This parser only
-  ever reads an explicit protocol field (`mcpTools`, `a2aSkills`, `skills`,
-  ...) into a feature row; it never guesses at a service's capabilities.
-- `AgentRegistration.contentHash` and `FeedbackDocument.contentHash` are
-  `keccak256` of the decoded JSON text, so a consumer can verify a cached copy
-  against the on-chain URI without re-decoding the `data:` URI.
-- A service or feedback object's keys that are not part of the documented
-  profile become `AgentServiceAttribute` rows (there is no feedback-side
-  equivalent in the schema) rather than being dropped.
-
-## Testing
-
-```sh
-vp run test
-```
-
-`src/utils/*.test.ts` and `src/entities/*.test.ts` cover the parsing and
-lookup helpers with Matchstick, including the full
-`AgentRegistration`/`FeedbackDocument` entity trees.
-
-`src/handlers/*.test.ts` currently only cover the guard clauses that return
-before saving anything (an event for an agent or feedback record that was
-never indexed). Matchstick's store cannot persist the GraphQL `Timestamp`
-scalar that `createdAt`/`updatedAt`/`timestamp` use on almost every other
-entity here — saving one aborts the whole test binary instead of failing one
-assertion ([LimeChain/matchstick#433](https://github.com/LimeChain/matchstick/issues/433),
-still open). The happy paths those handlers drive — counters, revisions,
-document parsing — are covered instead by `graph build`'s type checking, the
-utils tests they delegate to, and manual review.
-
-If this gap matters more than the `Timestamp` scalar's typing (a plain
-GraphQL string/number, rather than the ISO-8601 timestamp most GraphQL
-clients render), switching those fields to `BigInt` (Unix seconds) would
-unblock full handler coverage today. That is a schema-wide change outside
-this change's scope, so it has been left for a deliberate decision rather than
-made silently.
+The Validation Registry ABI and addresses are in the repo but not wired into
+the manifest. Its interface is still changing.
 
 ## Install
 
-Install the [Vite+ CLI](https://viteplus.dev/guide/). Vite+ installs the pinned
+Install the [Vite+ CLI](https://viteplus.dev/guide/). It installs the pinned
 Bun version and uses it as this project's package manager.
 
 ```sh
@@ -162,120 +17,139 @@ curl -fsSL https://vite.plus | bash
 vp install
 ```
 
-Installing dependencies also configures the pre-commit hook. It formats and
-lints staged files with Oxfmt and Oxlint. Run `vp hooks status` if the hook does
-not run in your clone.
+This also sets up a pre-commit hook that formats and lints staged files with
+Oxfmt and Oxlint. If it does not run in your clone, run `vp hooks status`.
 
-## Quality checks
+## Deploy to a chain
 
-Run formatting and non-type-aware linting:
+1. Create a Subgraph Studio project for the chain you want. Copy its slug
+   from the Studio page.
+2. Authenticate once with your deploy key.
+
+   ```sh
+   bunx graph auth YOUR_DEPLOY_KEY
+   ```
+
+   Keep the key in your password manager or shell environment. Do not commit
+   it.
+3. Run the deploy script with `chain=slug`.
+
+   ```sh
+   bun run deploy -- sepolia=your-studio-slug --version v0.1.0
+   ```
+
+   This generates the chain's manifest, runs codegen, builds it, and pushes
+   it to Studio. Version defaults to `dev` if you skip `--version`.
+
+Deploy to several chains at once. Each still needs its own Studio project.
 
 ```sh
-vp check
+bun run deploy -- \
+  mainnet=your-mainnet-slug \
+  base=your-base-slug \
+  --version v0.1.0
 ```
 
-The subgraph mappings are AssemblyScript, so `graph build` remains their
-authoritative compiler check. `bun run typecheck` covers `scripts/` only, and
-`vp run build` runs it before generating a manifest. Run all quality checks and
-build the default Arc Testnet subgraph before opening a pull request:
+If one build or deploy fails, the script stops there. Fix that target and
+run the command again.
+
+To just build a manifest without deploying, drop the slug and add
+`--build-only`.
 
 ```sh
-vp run ready
+bun run deploy -- base --build-only
 ```
 
-## Configure a chain
+Running `vp run build` does the same thing for Sepolia, the default chain.
 
-Chain settings live in `chain.config.json`. Each entry needs:
+## Add a new chain
 
-- The Graph network identifier
-- The numeric chain ID
-- The Identity Registry address and start block
-- The Reputation Registry address and start block
-
-The Validation Registry address and start block are optional. The deploy script
-does not read them while that data source is disabled. Existing entries remain
-in the config for later use.
-
-Arc Testnet is already configured with The Graph identifier `arc-testnet` and
-chain ID `5042002`.
-
-To add a chain, copy an existing entry and change its key and values.
+Open `chain.config.json` and add an entry. Copy an existing one and change
+the values.
 
 ```json
 {
-  "another-testnet": {
+  "your-chain": {
     "network": "the-graph-network-id",
     "chainId": 123,
     "contracts": {
-      "identity": {
-        "address": "0x...",
-        "startBlock": 100
-      },
-      "reputation": {
-        "address": "0x...",
-        "startBlock": 100
-      },
-      "validation": {
-        "address": "0x...",
-        "startBlock": 100
-      }
+      "identity": { "address": "0x...", "startBlock": 100 },
+      "reputation": { "address": "0x...", "startBlock": 100 },
+      "validation": { "address": "0x...", "startBlock": 100 }
     }
   }
 }
 ```
 
-Use the identifier listed on The Graph's
-[supported networks page](https://thegraph.com/docs/en/supported-networks/).
-Set each start block to the contract's deployment block. Starting at block zero
-works, but wastes indexing time.
+- `network` is the id from The Graph's
+  [supported networks page](https://thegraph.com/docs/en/supported-networks/).
+- `startBlock` should be the block where the contract was deployed. Zero
+  works, but wastes time indexing history you don't need.
+- `validation` is optional. The deploy script ignores it while that data
+  source stays disabled.
 
-## Build Arc Testnet
-
-This command generates `.generated/arc-testnet/subgraph.yaml`, runs codegen,
-and builds the mapping. It does not deploy anything.
-
-```sh
-vp run build
-```
-
-The same check can target another configured chain.
+Build it to check the manifest before deploying anything.
 
 ```sh
-bun run deploy -- base-sepolia --build-only
+bun run deploy -- your-chain --build-only
 ```
 
-## Deploy
-
-Create one Subgraph Studio project per chain. Copy each project's slug from its
-Studio page.
-
-Authenticate once with the deploy key shown in Subgraph Studio.
+## Testing
 
 ```sh
-bunx graph auth YOUR_DEPLOY_KEY
+vp run test
 ```
 
-Keep the deploy key in your password manager or shell environment. Do not add
-it to this repository.
+Utils and entity helpers have full Matchstick coverage. Handler tests only
+cover the early-return guard clauses, an event for an agent that was never
+registered, because saving certain entities crashes Matchstick's test runner
+([LimeChain/matchstick#433](https://github.com/LimeChain/matchstick/issues/433)).
+The rest of the handler logic gets checked by `graph build` and by the utils
+tests it depends on.
 
-Pass a target as `chain=studio-slug`. The version defaults to `dev`.
+## Quality checks
 
 ```sh
-bun run deploy -- arc-testnet=your-arc-studio-slug --version v0.1.0
+vp check
 ```
 
-The script generates the chain's manifest, runs codegen, builds it, and sends
-it to Subgraph Studio.
-
-Pass several targets to deploy the same code to several chains in sequence.
-Each chain still needs its own Studio project.
+Formats and lints staged files. Before opening a pull request, run
+everything:
 
 ```sh
-bun run deploy -- \
-  arc-testnet=your-arc-studio-slug \
-  base-sepolia=your-base-studio-slug \
-  --version v0.1.0
+vp run ready
 ```
 
-If one build or deployment fails, the script stops. Fix that target, then run
-the command again.
+This checks, typechecks `scripts/`, and builds the default Sepolia subgraph.
+`graph build` is the real compiler check for the AssemblyScript mappings in
+`src/`.
+
+## Notes on the schema and handler logic
+
+These are working notes, not a spec. Read `schema.graphql` and `src/` for
+what the code actually does.
+
+- `Agent` and `Feedback` hold current state and get updated in place.
+  Everything else, registrations, feedback documents, services, responses,
+  gets written once and stays that way. Reverse lookups use `@derivedFrom`
+  instead of arrays, so parent entities don't grow unbounded lists.
+- `AgentService.kind` matches a known service name or falls back to
+  `CUSTOM`. Each capability, tool, resource, prompt, skill, or domain gets
+  its own `AgentServiceFeature` row so it can be filtered directly. Fields
+  with no matching schema column land in `AgentServiceAttribute`.
+- `FeedbackDocumentFeature` covers A2A skills, OASF skills, OASF domains,
+  and MCP values. It reads both the nested ERC-8004 shape and the flat
+  fields from the 8004scan v2 profile.
+- Chain handlers decode `data:` URIs straight into `AgentRegistration` and
+  `FeedbackDocument`. IPFS and Arweave links get stored and classified, but
+  nothing parses their content yet. That needs file data source templates,
+  which aren't set up.
+- Plain HTTP and HTTPS URIs never get parsed. Public Graph Network indexers
+  can't fetch arbitrary URLs in a deterministic way.
+- A few details in the community profiles were ambiguous, so here is the
+  current behavior: `AgentService.capabilitiesInferred` is always `false`
+  (nothing gets guessed), `contentHash` fields are `keccak256` of the
+  decoded JSON text, and unknown keys become `AgentServiceAttribute` rows
+  instead of getting dropped.
+
+If you're relying on any of this, check the code first. These notes drift.
