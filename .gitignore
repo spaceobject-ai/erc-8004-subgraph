@@ -6,3 +6,5 @@ src/.bin/
 src/.latest.json
 .env
 *.log
+
+.DS_Store
