@@ -17,9 +17,6 @@ curl -fsSL https://vite.plus | bash
 vp install
 ```
 
-This also sets up a pre-commit hook that formats and lints staged files with
-Oxfmt and Oxlint. If it does not run in your clone, run `vp hooks status`.
-
 ## Deploy to a chain
 
 1. Create a Subgraph Studio project for the chain you want. Copy its slug
@@ -130,27 +127,29 @@ This checks, typechecks `scripts/`, and builds the default Sepolia subgraph.
 These are working notes, not a spec. Read `schema.graphql` and `src/` for
 what the code actually does.
 
-- `Agent` and `Feedback` hold current state and get updated in place.
-  Everything else, registrations, feedback documents, services, responses,
-  gets written once and stays that way. Reverse lookups use `@derivedFrom`
-  instead of arrays, so parent entities don't grow unbounded lists.
-- `AgentService.kind` matches a known service name or falls back to
-  `CUSTOM`. Each capability, tool, resource, prompt, skill, or domain gets
-  its own `AgentServiceFeature` row so it can be filtered directly. Fields
-  with no matching schema column land in `AgentServiceAttribute`.
-- `FeedbackDocumentFeature` covers A2A skills, OASF skills, OASF domains,
-  and MCP values. It reads both the nested ERC-8004 shape and the flat
-  fields from the 8004scan v2 profile.
-- Chain handlers decode `data:` URIs straight into `AgentRegistration` and
-  `FeedbackDocument`. IPFS and Arweave links get stored and classified, but
-  nothing parses their content yet. That needs file data source templates,
-  which aren't set up.
+- Entity types that are mutable: `IdentityRegistry`, `ReputationRegistry`,
+  `Account`, `Agent`, `AgentMetadata`, `OperatorApproval`, and `Feedback`.
+  Everything else is immutable, including the revision and change logs,
+  registrations, feedback documents, services, and responses. Reverse lookups
+  use `@derivedFrom` instead of arrays, so no parent entity grows an unbounded
+  list.
+- `AgentService.kind` lowercases the service name and matches it against web,
+  a2a, mcp, oasf, ens, did, email, and agentwallet. Anything else is `CUSTOM`.
+  The `capabilities`, `mcpTools`, `mcpPrompts`, `mcpResources`, `a2aSkills`,
+  `skills`, and `domains` arrays become `AgentServiceFeature` rows, so you can
+  filter on one exact tool or skill. Every other key in the service object
+  becomes an `AgentServiceAttribute` row.
+- Chain handlers decode `data:` URIs into `AgentRegistration` (from
+  `Registered` and `URIUpdated`) and `FeedbackDocument` (from `NewFeedback`).
+  `responseURI` is stored and classified but never parsed. IPFS and Arweave
+  links get the same treatment. The `*File` entity types in `schema.graphql`
+  exist for file data source templates that the manifest doesn't declare yet,
+  so nothing writes them.
 - Plain HTTP and HTTPS URIs never get parsed. Public Graph Network indexers
   can't fetch arbitrary URLs in a deterministic way.
-- A few details in the community profiles were ambiguous, so here is the
-  current behavior: `AgentService.capabilitiesInferred` is always `false`
-  (nothing gets guessed), `contentHash` fields are `keccak256` of the
-  decoded JSON text, and unknown keys become `AgentServiceAttribute` rows
-  instead of getting dropped.
+- Two more details, both from ambiguities in the community profiles:
+  `AgentService.capabilitiesInferred` is always `false` because the parser
+  never guesses, and `contentHash` is `keccak256` of the decoded `data:`
+  payload text, not of the onchain URI.
 
 If you're relying on any of this, check the code first. These notes drift.
