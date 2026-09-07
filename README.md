@@ -19,7 +19,17 @@ chain.config.json           Chain addresses and start blocks
 schema.graphql              Identity and reputation query model
 subgraph.template.yaml      Shared manifest template
 matchstick.yaml             Matchstick test configuration
+tsconfig.json               TypeScript config for scripts/
+src/tsconfig.json           AssemblyScript config for editors in src/
 ```
+
+Two tsconfigs, because the two directories are different languages.
+`scripts/deploy.ts` is Bun TypeScript and `bun run typecheck` checks it. The
+mappings in `src/` are AssemblyScript, where `i32`, `u8`, and the other value
+types are globals no standard TypeScript lib declares. `src/tsconfig.json`
+extends `assemblyscript/std/assembly.json` so editors resolve those globals.
+Editors pick the nearest tsconfig, so nothing else reads it. `graph build` and
+`graph test` still compile `src/`.
 
 ## Schema design
 
@@ -86,7 +96,10 @@ the same output and never read or write an entity.
 - `uri.ts` classifies a URI's scheme and decodes a `data:` payload.
 - `base64.ts` backs the `data:...;base64,` case (graph-ts has no built-in decoder).
 - `json.ts` reads untrusted `JSONValue` trees without ever letting a
-  malformed or adversarial document abort a handler.
+  malformed or adversarial document abort a handler. Number reads range-check
+  in `f64` before casting, because an out-of-range `as i32` or `as i64` traps
+  and kills the whole handler. Values past those limits, `Infinity` included,
+  either return null or fall back to `f64` rendering.
 - `caip.ts` reads and writes CAIP-10 identifiers (`eip155:<chainId>:<address>`).
 - `ids.ts` builds the `Agent` entity ID, the one thing both data sources need
   to agree on to find each other's entities.
@@ -162,8 +175,9 @@ vp check
 ```
 
 The subgraph mappings are AssemblyScript, so `graph build` remains their
-authoritative compiler check. Run all quality checks and build the default Arc
-Testnet subgraph before opening a pull request:
+authoritative compiler check. `bun run typecheck` covers `scripts/` only, and
+`vp run build` runs it before generating a manifest. Run all quality checks and
+build the default Arc Testnet subgraph before opening a pull request:
 
 ```sh
 vp run ready
@@ -265,18 +279,3 @@ bun run deploy -- \
 
 If one build or deployment fails, the script stops. Fix that target, then run
 the command again.
-
-## Add indexing later
-
-Two things remain outside this repository's current scope:
-
-- File data source templates for IPFS and Arweave `agentURI`/`feedbackURI`
-  values, populating `AgentRegistrationFile` and `FeedbackDocumentFile`. Chain
-  handlers already classify and store these URIs; only the parsed document
-  trees are missing.
-- The Validation Registry, once its interface settles (see the commented
-  block in `subgraph.template.yaml` and the commented imports in
-  `src/mapping.ts`).
-
-Keep chain addresses in `chain.config.json` so every deployment still uses the
-same template and command.
