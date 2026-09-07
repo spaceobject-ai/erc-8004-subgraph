@@ -1,5 +1,4 @@
 {
-  "extends": "assemblyscript/std/assembly.json",
   "compilerOptions": {
     "target": "ESNext",
     "module": "Preserve",
@@ -13,5 +12,5 @@
     "skipLibCheck": true,
     "types": ["bun"]
   },
-  "include": ["scripts/**/*.ts", "src/**/*.ts"]
+  "include": ["scripts/**/*.ts"]
 }
