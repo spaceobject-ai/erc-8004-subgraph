@@ -1,0 +1,2 @@
+testsFolder: ./src
+manifestPath: .generated/arc-testnet/subgraph.yaml

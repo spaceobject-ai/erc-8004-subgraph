@@ -7,7 +7,8 @@
     "build": "bun run typecheck && bun run ./scripts/deploy.ts arc-testnet --build-only",
     "deploy": "bun run ./scripts/deploy.ts",
     "prepare": "vp config --no-agent --no-hooks",
-    "ready": "vp check && vp run build",
+    "ready": "vp check && vp run build && vp run test",
+    "test": "graph test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -16,6 +17,7 @@
   },
   "devDependencies": {
     "@types/bun": "^1.2.0",
+    "matchstick-as": "^0.6.0",
     "typescript": "^5.9.3",
     "vite-plus": "0.3.0"
   },

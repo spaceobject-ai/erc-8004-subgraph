@@ -1,27 +1,24 @@
 # ERC-8004 subgraph
 
-This repository is a starting point for indexing the stable ERC-8004 Identity
-and Reputation registries. Arc Testnet is the default target. Base Sepolia is
-included to show how the same manifest can be built and deployed for more than
-one chain. The Validation Registry ABI, addresses, and commented mapping setup
-remain in the repository, but builds do not index it while its interface is
-unstable.
-
-The event handlers are empty on purpose. Deployments made from this version
-will listen for registry events but will not save data.
+This repository indexes the stable ERC-8004 Identity and Reputation
+registries. Arc Testnet is the default target. Base Sepolia is included to
+show how the same manifest can be built and deployed for more than one chain.
+The Validation Registry ABI, addresses, and commented mapping setup remain in
+the repository, but builds do not index it while its interface is unstable.
 
 ## What is here
 
 ```text
-abis/                    Event-only contract ABIs
-src/mapping.ts           Empty event handlers
-scripts/deploy.ts        Manifest generation, build, and deployment
-chain.config.json        Chain addresses and start blocks
-schema.graphql           Identity and reputation query model
-subgraph.template.yaml   Shared manifest template
+abis/                       Event-only contract ABIs
+src/mapping.ts              Re-exports the handlers below for subgraph.yaml
+src/handlers/               One file per data source, plus its tests
+src/utils/                  Shared parsing and lookup helpers, plus their tests
+scripts/deploy.ts           Manifest generation, build, and deployment
+chain.config.json           Chain addresses and start blocks
+schema.graphql              Identity and reputation query model
+subgraph.template.yaml      Shared manifest template
+matchstick.yaml             Matchstick test configuration
 ```
-
-There is no `utils` directory. Add one when the mappings need shared code.
 
 ## Schema design
 
@@ -67,7 +64,69 @@ with a `File` suffix.
 
 Public Graph Network indexers cannot fetch arbitrary HTTP or HTTPS documents in
 a deterministic way. Those records retain the URI but do not get parsed
-document entities.
+document entities. IPFS and Arweave documents are in the same position today:
+parsing them needs file data source templates, which are not set up yet (see
+"Add indexing later" below). Until then, an IPFS or Arweave `agentURI` or
+`feedbackURI` is stored and classified, but `Agent.registration` and
+`Feedback.document` stay null for it.
+
+## Handlers
+
+`src/handlers/identity-registry.ts` and `src/handlers/reputation-registry.ts`
+implement every event in their manifests. `src/mapping.ts` only re-exports
+them, because `subgraph.yaml` handlers must live in the file it points at.
+
+Both handlers share lookup and parsing code from `src/utils/`:
+
+- `uri.ts` classifies a URI's scheme and decodes a `data:` payload.
+- `base64.ts` backs the `data:...;base64,` case (graph-ts has no built-in decoder).
+- `json.ts` reads untrusted `JSONValue` trees without ever letting a
+  malformed or adversarial document abort a handler.
+- `caip.ts` reads and writes CAIP-10 identifiers (`eip155:<chainId>:<address>`).
+- `account.ts` and `ids.ts` hold the `Account` lookup and the `Agent` entity
+  ID, the two things both data sources need to agree on.
+- `registration.ts` and `feedback-document.ts` parse a `data:` URI's JSON into
+  the entity trees described above, following the 8004scan community
+  profiles for agent metadata and feedback data.
+
+A few mapping choices from those community profiles were not fully specified
+and were resolved as follows; revisit them if real-world documents disagree:
+
+- `AgentService.capabilitiesInferred` is always `false`. This parser only
+  ever reads an explicit protocol field (`mcpTools`, `a2aSkills`, `skills`,
+  ...) into a feature row; it never guesses at a service's capabilities.
+- `AgentRegistration.contentHash` and `FeedbackDocument.contentHash` are
+  `keccak256` of the decoded JSON text, so a consumer can verify a cached copy
+  against the on-chain URI without re-decoding the `data:` URI.
+- A service or feedback object's keys that are not part of the documented
+  profile become `AgentServiceAttribute` rows (there is no feedback-side
+  equivalent in the schema) rather than being dropped.
+
+## Testing
+
+```sh
+vp run test
+```
+
+`src/utils/*.test.ts` cover the parsing and lookup helpers with Matchstick,
+including the full `AgentRegistration`/`FeedbackDocument` entity trees.
+
+`src/handlers/*.test.ts` currently only cover the guard clauses that return
+before saving anything (an event for an agent or feedback record that was
+never indexed). Matchstick's store cannot persist the GraphQL `Timestamp`
+scalar that `createdAt`/`updatedAt`/`timestamp` use on almost every other
+entity here — saving one aborts the whole test binary instead of failing one
+assertion ([LimeChain/matchstick#433](https://github.com/LimeChain/matchstick/issues/433),
+still open). The happy paths those handlers drive — counters, revisions,
+document parsing — are covered instead by `graph build`'s type checking, the
+utils tests they delegate to, and manual review.
+
+If this gap matters more than the `Timestamp` scalar's typing (a plain
+GraphQL string/number, rather than the ISO-8601 timestamp most GraphQL
+clients render), switching those fields to `BigInt` (Unix seconds) would
+unblock full handler coverage today. That is a schema-wide change outside
+this change's scope, so it has been left for a deliberate decision rather than
+made silently.
 
 ## Install
 
@@ -198,7 +257,15 @@ the command again.
 
 ## Add indexing later
 
-Fill in the handlers in `src/mapping.ts`, including file data source templates
-for content-addressed agent and feedback documents. Keep chain addresses in
-`chain.config.json` so every deployment still uses the same template and
-command.
+Two things remain outside this repository's current scope:
+
+- File data source templates for IPFS and Arweave `agentURI`/`feedbackURI`
+  values, populating `AgentRegistrationFile` and `FeedbackDocumentFile`. Chain
+  handlers already classify and store these URIs; only the parsed document
+  trees are missing.
+- The Validation Registry, once its interface settles (see the commented
+  block in `subgraph.template.yaml` and the commented imports in
+  `src/mapping.ts`).
+
+Keep chain addresses in `chain.config.json` so every deployment still uses the
+same template and command.
