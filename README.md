@@ -32,6 +32,7 @@ Oxfmt and Oxlint. If it does not run in your clone, run `vp hooks status`.
 
    Keep the key in your password manager or shell environment. Do not commit
    it.
+
 3. Run the deploy script with `chain=slug`.
 
    ```sh
