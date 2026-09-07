@@ -89,7 +89,7 @@ export function resolveFeedbackDocument(
 
   document.save();
 
-  if (paymentProof != null) savePaymentProof(id, paymentProof!);
+  if (paymentProof != null) savePaymentProof(id, paymentProof);
 
   const attachments = asObjectArray(obj.get("attachments"));
   for (let i = 0; i < attachments.length; i++) {

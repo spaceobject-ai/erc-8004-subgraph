@@ -24,7 +24,7 @@ export function asObjectArray(value: JSONValue | null): Array<TypedMap<string, J
   for (let i = 0; i < items.length; i++) {
     const obj = asObject(items[i]);
     if (obj == null) continue;
-    out.push(obj!);
+    out.push(obj);
   }
   return out;
 }
