@@ -1,27 +1,35 @@
 # ERC-8004 subgraph
 
-This repository is a starting point for indexing the stable ERC-8004 Identity
-and Reputation registries. Arc Testnet is the default target. Base Sepolia is
-included to show how the same manifest can be built and deployed for more than
-one chain. The Validation Registry ABI, addresses, and commented mapping setup
-remain in the repository, but builds do not index it while its interface is
-unstable.
-
-The event handlers are empty on purpose. Deployments made from this version
-will listen for registry events but will not save data.
+This repository indexes the stable ERC-8004 Identity and Reputation
+registries. Arc Testnet is the default target. Base Sepolia is included to
+show how the same manifest can be built and deployed for more than one chain.
+The Validation Registry ABI, addresses, and commented mapping setup remain in
+the repository, but builds do not index it while its interface is unstable.
 
 ## What is here
 
 ```text
-abis/                    Event-only contract ABIs
-src/mapping.ts           Empty event handlers
-scripts/deploy.ts        Manifest generation, build, and deployment
-chain.config.json        Chain addresses and start blocks
-schema.graphql           Identity and reputation query model
-subgraph.template.yaml   Shared manifest template
+abis/                       Event-only contract ABIs
+src/mapping.ts              Re-exports the handlers below for subgraph.yaml
+src/handlers/               One file per data source, plus its tests
+src/entities/               Entity lookup/create/save helpers, plus their tests
+src/utils/                  Pure parsing and formatting helpers, plus their tests
+scripts/deploy.ts           Manifest generation, build, and deployment
+chain.config.json           Chain addresses and start blocks
+schema.graphql              Identity and reputation query model
+subgraph.template.yaml      Shared manifest template
+matchstick.yaml             Matchstick test configuration
+tsconfig.json               TypeScript config for scripts/
+src/tsconfig.json           AssemblyScript config for editors in src/
 ```
 
-There is no `utils` directory. Add one when the mappings need shared code.
+Two tsconfigs, because the two directories are different languages.
+`scripts/deploy.ts` is Bun TypeScript and `bun run typecheck` checks it. The
+mappings in `src/` are AssemblyScript, where `i32`, `u8`, and the other value
+types are globals no standard TypeScript lib declares. `src/tsconfig.json`
+extends `../node_modules/assemblyscript/std/assembly.json` so editors resolve
+those globals. Editors pick the nearest tsconfig, so nothing else reads it.
+`graph build` and `graph test` still compile `src/`.
 
 ## Schema design
 
@@ -67,7 +75,82 @@ with a `File` suffix.
 
 Public Graph Network indexers cannot fetch arbitrary HTTP or HTTPS documents in
 a deterministic way. Those records retain the URI but do not get parsed
-document entities.
+document entities. IPFS and Arweave documents are in the same position today:
+parsing them needs file data source templates, which are not set up yet. Until
+then, an IPFS or Arweave `agentURI` or
+`feedbackURI` is stored and classified, but `Agent.registration` and
+`Feedback.document` stay null for it.
+
+## Handlers
+
+`src/handlers/identity-registry.ts` and `src/handlers/reputation-registry.ts`
+implement every event in their manifests. `src/mapping.ts` only re-exports
+them, because `subgraph.yaml` handlers must live in the file it points at.
+
+Both handlers share code from two directories, split by whether a function
+touches the store:
+
+`src/utils/` holds pure functions: given the same input, they always return
+the same output and never read or write an entity.
+
+- `uri.ts` classifies a URI's scheme and decodes a `data:` payload.
+- `base64.ts` backs the `data:...;base64,` case (graph-ts has no built-in decoder).
+- `json.ts` reads untrusted `JSONValue` trees without ever letting a
+  malformed or adversarial document abort a handler. Number reads range-check
+  in `f64` before casting, because an out-of-range `as i32` or `as i64` traps
+  and kills the whole handler. Values past those limits, `Infinity` included,
+  either return null or fall back to `f64` rendering.
+- `caip.ts` reads and writes CAIP-10 identifiers (`eip155:<chainId>:<address>`).
+- `ids.ts` builds the `Agent` entity ID, the one thing both data sources need
+  to agree on to find each other's entities.
+
+`src/entities/` holds the functions built on top of those that load, create,
+and save entities:
+
+- `account.ts` loads or lazily creates the `Account` both data sources share.
+- `registration.ts` and `feedback-document.ts` parse a `data:` URI's JSON into
+  the entity trees described above, following the 8004scan community
+  profiles for agent metadata and feedback data.
+
+A few mapping choices from those community profiles were not fully specified
+and were resolved as follows; revisit them if real-world documents disagree:
+
+- `AgentService.capabilitiesInferred` is always `false`. This parser only
+  ever reads an explicit protocol field (`mcpTools`, `a2aSkills`, `skills`,
+  ...) into a feature row; it never guesses at a service's capabilities.
+- `AgentRegistration.contentHash` and `FeedbackDocument.contentHash` are
+  `keccak256` of the decoded JSON text, so a consumer can verify a cached copy
+  against the on-chain URI without re-decoding the `data:` URI.
+- A service or feedback object's keys that are not part of the documented
+  profile become `AgentServiceAttribute` rows (there is no feedback-side
+  equivalent in the schema) rather than being dropped.
+
+## Testing
+
+```sh
+vp run test
+```
+
+`src/utils/*.test.ts` and `src/entities/*.test.ts` cover the parsing and
+lookup helpers with Matchstick, including the full
+`AgentRegistration`/`FeedbackDocument` entity trees.
+
+`src/handlers/*.test.ts` currently only cover the guard clauses that return
+before saving anything (an event for an agent or feedback record that was
+never indexed). Matchstick's store cannot persist the GraphQL `Timestamp`
+scalar that `createdAt`/`updatedAt`/`timestamp` use on almost every other
+entity here — saving one aborts the whole test binary instead of failing one
+assertion ([LimeChain/matchstick#433](https://github.com/LimeChain/matchstick/issues/433),
+still open). The happy paths those handlers drive — counters, revisions,
+document parsing — are covered instead by `graph build`'s type checking, the
+utils tests they delegate to, and manual review.
+
+If this gap matters more than the `Timestamp` scalar's typing (a plain
+GraphQL string/number, rather than the ISO-8601 timestamp most GraphQL
+clients render), switching those fields to `BigInt` (Unix seconds) would
+unblock full handler coverage today. That is a schema-wide change outside
+this change's scope, so it has been left for a deliberate decision rather than
+made silently.
 
 ## Install
 
@@ -92,8 +175,9 @@ vp check
 ```
 
 The subgraph mappings are AssemblyScript, so `graph build` remains their
-authoritative compiler check. Run all quality checks and build the default Arc
-Testnet subgraph before opening a pull request:
+authoritative compiler check. `bun run typecheck` covers `scripts/` only, and
+`vp run build` runs it before generating a manifest. Run all quality checks and
+build the default Arc Testnet subgraph before opening a pull request:
 
 ```sh
 vp run ready
@@ -195,10 +279,3 @@ bun run deploy -- \
 
 If one build or deployment fails, the script stops. Fix that target, then run
 the command again.
-
-## Add indexing later
-
-Fill in the handlers in `src/mapping.ts`, including file data source templates
-for content-addressed agent and feedback documents. Keep chain addresses in
-`chain.config.json` so every deployment still uses the same template and
-command.

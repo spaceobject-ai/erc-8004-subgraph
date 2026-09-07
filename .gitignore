@@ -2,5 +2,7 @@ node_modules/
 build/
 generated/
 .generated/
+src/.bin/
+src/.latest.json
 .env
 *.log
