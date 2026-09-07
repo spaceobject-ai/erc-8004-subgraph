@@ -1,6 +1,6 @@
 import { assert, clearStore, describe, test } from "matchstick-as";
 import { resolveAgentRegistration } from "./registration";
-import { URI_KIND_HTTPS } from "./uri";
+import { URI_KIND_HTTPS } from "../utils/uri";
 
 function dataUri(json: string): string {
   return "data:application/json," + json;

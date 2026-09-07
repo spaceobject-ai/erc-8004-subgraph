@@ -7,7 +7,7 @@ import {
   AgentServiceFeature,
   AgentTrust,
 } from "../../generated/schema";
-import { parseCaip10 } from "./caip";
+import { parseCaip10 } from "../utils/caip";
 import {
   asBool,
   asObject,
@@ -16,8 +16,8 @@ import {
   asStringArray,
   asWholeBigInt,
   describeJsonValue,
-} from "./json";
-import { decodeDataUri, URI_KIND_DATA } from "./uri";
+} from "../utils/json";
+import { decodeDataUri, URI_KIND_DATA } from "../utils/uri";
 
 /**
  * Parses a `data:` agentURI into an `AgentRegistration` entity tree, following
@@ -26,8 +26,9 @@ import { decodeDataUri, URI_KIND_DATA } from "./uri";
  * not `DATA` or the payload cannot be parsed as a JSON object.
  *
  * The content is entirely agent-controlled, so nothing here trusts its shape:
- * every read goes through the guarded helpers in `./json.ts`, and a malformed
- * document simply yields null instead of a partial or crashed handler.
+ * every read goes through the guarded helpers in `../utils/json.ts`, and a
+ * malformed document simply yields null instead of a partial or crashed
+ * handler.
  */
 export function resolveAgentRegistration(sourceURI: string, sourceURIKind: string): Bytes | null {
   if (sourceURIKind != URI_KIND_DATA) return null;

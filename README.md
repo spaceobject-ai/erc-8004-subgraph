@@ -12,7 +12,8 @@ the repository, but builds do not index it while its interface is unstable.
 abis/                       Event-only contract ABIs
 src/mapping.ts              Re-exports the handlers below for subgraph.yaml
 src/handlers/               One file per data source, plus its tests
-src/utils/                  Shared parsing and lookup helpers, plus their tests
+src/entities/               Entity lookup/create/save helpers, plus their tests
+src/utils/                  Pure parsing and formatting helpers, plus their tests
 scripts/deploy.ts           Manifest generation, build, and deployment
 chain.config.json           Chain addresses and start blocks
 schema.graphql              Identity and reputation query model
@@ -76,15 +77,24 @@ parsing them needs file data source templates, which are not set up yet (see
 implement every event in their manifests. `src/mapping.ts` only re-exports
 them, because `subgraph.yaml` handlers must live in the file it points at.
 
-Both handlers share lookup and parsing code from `src/utils/`:
+Both handlers share code from two directories, split by whether a function
+touches the store:
+
+`src/utils/` holds pure functions: given the same input, they always return
+the same output and never read or write an entity.
 
 - `uri.ts` classifies a URI's scheme and decodes a `data:` payload.
 - `base64.ts` backs the `data:...;base64,` case (graph-ts has no built-in decoder).
 - `json.ts` reads untrusted `JSONValue` trees without ever letting a
   malformed or adversarial document abort a handler.
 - `caip.ts` reads and writes CAIP-10 identifiers (`eip155:<chainId>:<address>`).
-- `account.ts` and `ids.ts` hold the `Account` lookup and the `Agent` entity
-  ID, the two things both data sources need to agree on.
+- `ids.ts` builds the `Agent` entity ID, the one thing both data sources need
+  to agree on to find each other's entities.
+
+`src/entities/` holds the functions built on top of those that load, create,
+and save entities:
+
+- `account.ts` loads or lazily creates the `Account` both data sources share.
 - `registration.ts` and `feedback-document.ts` parse a `data:` URI's JSON into
   the entity trees described above, following the 8004scan community
   profiles for agent metadata and feedback data.
@@ -108,8 +118,9 @@ and were resolved as follows; revisit them if real-world documents disagree:
 vp run test
 ```
 
-`src/utils/*.test.ts` cover the parsing and lookup helpers with Matchstick,
-including the full `AgentRegistration`/`FeedbackDocument` entity trees.
+`src/utils/*.test.ts` and `src/entities/*.test.ts` cover the parsing and
+lookup helpers with Matchstick, including the full
+`AgentRegistration`/`FeedbackDocument` entity trees.
 
 `src/handlers/*.test.ts` currently only cover the guard clauses that return
 before saving anything (an event for an agent or feedback record that was

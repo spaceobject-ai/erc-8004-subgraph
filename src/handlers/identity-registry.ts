@@ -18,10 +18,10 @@ import {
   OperatorApproval,
   OperatorApprovalChange,
 } from "../../generated/schema";
-import { getOrCreateAccount } from "../utils/account";
+import { getOrCreateAccount } from "../entities/account";
+import { resolveAgentRegistration } from "../entities/registration";
 import { toEip155Caip10 } from "../utils/caip";
 import { agentEntityId } from "../utils/ids";
-import { resolveAgentRegistration } from "../utils/registration";
 import { classifyUri } from "../utils/uri";
 
 export function handleRegistered(event: Registered): void {

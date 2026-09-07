@@ -14,8 +14,8 @@ import {
   asWholeBigInt,
   asWholeI32,
   isDecimalString,
-} from "./json";
-import { classifyUri, decodeDataUri, URI_KIND_DATA } from "./uri";
+} from "../utils/json";
+import { classifyUri, decodeDataUri, URI_KIND_DATA } from "../utils/uri";
 
 /**
  * Parses a `data:` feedbackURI (or responseURI) into a `FeedbackDocument`
@@ -28,7 +28,7 @@ import { classifyUri, decodeDataUri, URI_KIND_DATA } from "./uri";
  *
  * As with `resolveAgentRegistration`, the content is entirely
  * client-controlled, so every read goes through the guarded helpers in
- * `./json.ts`.
+ * `../utils/json.ts`.
  */
 export function resolveFeedbackDocument(
   feedbackId: Bytes,

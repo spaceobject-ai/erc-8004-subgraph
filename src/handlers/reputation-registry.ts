@@ -11,8 +11,8 @@ import {
   FeedbackResponse,
   ReputationRegistry,
 } from "../../generated/schema";
-import { getOrCreateAccount } from "../utils/account";
-import { resolveFeedbackDocument } from "../utils/feedback-document";
+import { getOrCreateAccount } from "../entities/account";
+import { resolveFeedbackDocument } from "../entities/feedback-document";
 import { agentEntityId } from "../utils/ids";
 import { classifyUri } from "../utils/uri";
 
