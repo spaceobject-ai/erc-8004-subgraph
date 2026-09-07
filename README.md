@@ -27,9 +27,9 @@ Two tsconfigs, because the two directories are different languages.
 `scripts/deploy.ts` is Bun TypeScript and `bun run typecheck` checks it. The
 mappings in `src/` are AssemblyScript, where `i32`, `u8`, and the other value
 types are globals no standard TypeScript lib declares. `src/tsconfig.json`
-extends `assemblyscript/std/assembly.json` so editors resolve those globals.
-Editors pick the nearest tsconfig, so nothing else reads it. `graph build` and
-`graph test` still compile `src/`.
+extends `../node_modules/assemblyscript/std/assembly.json` so editors resolve
+those globals. Editors pick the nearest tsconfig, so nothing else reads it.
+`graph build` and `graph test` still compile `src/`.
 
 ## Schema design
 
@@ -76,8 +76,8 @@ with a `File` suffix.
 Public Graph Network indexers cannot fetch arbitrary HTTP or HTTPS documents in
 a deterministic way. Those records retain the URI but do not get parsed
 document entities. IPFS and Arweave documents are in the same position today:
-parsing them needs file data source templates, which are not set up yet (see
-"Add indexing later" below). Until then, an IPFS or Arweave `agentURI` or
+parsing them needs file data source templates, which are not set up yet. Until
+then, an IPFS or Arweave `agentURI` or
 `feedbackURI` is stored and classified, but `Agent.registration` and
 `Feedback.document` stay null for it.
 
