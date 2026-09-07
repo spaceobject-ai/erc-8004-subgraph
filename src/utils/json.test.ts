@@ -63,6 +63,16 @@ describe("asWholeBigInt", () => {
     const obj = asObject(parse('{"agentId":"241"}'))!;
     assert.assertTrue(!asWholeBigInt(obj.get("agentId")));
   });
+
+  test("rejects a number beyond i64 range", () => {
+    const obj = asObject(parse('{"agentId":1e300}'))!;
+    assert.assertTrue(!asWholeBigInt(obj.get("agentId")));
+  });
+
+  test("rejects an infinite number", () => {
+    const obj = asObject(parse('{"agentId":1e400}'))!;
+    assert.assertTrue(!asWholeBigInt(obj.get("agentId")));
+  });
 });
 
 describe("asWholeI32", () => {
@@ -76,6 +86,12 @@ describe("asWholeI32", () => {
   test("rejects a value outside of the given range", () => {
     const obj = asObject(parse('{"valueDecimals":42}'))!;
     assert.assertTrue(!asWholeI32(obj.get("valueDecimals"), 0, 18).present);
+  });
+
+  test("rejects a whole value outside i32 range", () => {
+    const obj = asObject(parse('{"tooBig":2147483648,"tooSmall":-2147483649}'))!;
+    assert.assertTrue(!asWholeI32(obj.get("tooBig"), 0, 18).present);
+    assert.assertTrue(!asWholeI32(obj.get("tooSmall"), 0, 18).present);
   });
 });
 
@@ -122,6 +138,18 @@ describe("describeJsonValue", () => {
     const nested = describeJsonValue(obj.get("nested")!);
     assert.stringEquals('{"x":1}', nested.value);
     assert.stringEquals("JSON", nested.valueType);
+  });
+
+  test("renders out-of-range numbers without trapping", () => {
+    const obj = asObject(parse('{"huge":1e300,"inf":1e400}'))!;
+
+    const huge = describeJsonValue(obj.get("huge")!);
+    assert.stringEquals("1e+300", huge.value);
+    assert.stringEquals("NUMBER", huge.valueType);
+
+    const inf = describeJsonValue(obj.get("inf")!);
+    assert.stringEquals("Infinity", inf.value);
+    assert.stringEquals("NUMBER", inf.valueType);
   });
 });
 

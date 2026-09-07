@@ -86,7 +86,9 @@ export function asWholeBigInt(value: JSONValue | null): BigInt | null {
   if (value == null || value.isNull() || value.kind != JSONValueKind.NUMBER) return null;
 
   const asFloat = value.toF64();
-  if (asFloat < 0 || asFloat != Math.floor(asFloat)) return null;
+  // `asFloat as i64` below traps at 2^63 and above, +Inf included.
+  if (asFloat < 0 || asFloat != Math.floor(asFloat) || asFloat >= 9223372036854775808.0)
+    return null;
 
   // `f64.toString()` renders whole numbers as e.g. "241.0", which
   // `BigInt.fromString` rejects. `f64` only carries 53 bits of integer
@@ -103,9 +105,11 @@ export function asWholeI32(value: JSONValue | null, min: i32, max: i32): JsonI32
   const asFloat = value.toF64();
   if (asFloat != Math.floor(asFloat)) return new JsonI32(false, 0);
 
-  const asInt = asFloat as i32;
-  if (asInt < min || asInt > max) return new JsonI32(false, 0);
-  return new JsonI32(true, asInt);
+  // Range-check in f64 before casting: `asFloat as i32` traps outside
+  // ±2^31, and min/max are i32 values themselves, so anything within
+  // [min, max] casts safely.
+  if (asFloat < (min as f64) || asFloat > (max as f64)) return new JsonI32(false, 0);
+  return new JsonI32(true, asFloat as i32);
 }
 
 /** Reads a value that the 8004scan profile sometimes quotes and sometimes leaves as a bare number (e.g. a payment `chainId`). */
@@ -183,7 +187,14 @@ function quoteJsonString(value: string): string {
 
 function numberToText(value: JSONValue): string {
   const asFloat = value.toF64();
-  if (asFloat == Math.floor(asFloat)) return (asFloat as i64).toString();
+  // `asFloat as i64` traps outside ±2^63; whole values beyond that range
+  // (and ±Inf) fall through to the exponent-form `f64` rendering.
+  if (
+    asFloat >= -9223372036854775808.0 &&
+    asFloat < 9223372036854775808.0 &&
+    asFloat == Math.floor(asFloat)
+  )
+    return (asFloat as i64).toString();
   return asFloat.toString();
 }
 
