@@ -25,18 +25,26 @@ import { decodeDataUri, URI_KIND_DATA } from "../utils/uri";
  * registrations). Returns the entity's ID, or null when `sourceURIKind` is
  * not `DATA` or the payload cannot be parsed as a JSON object.
  *
+ * The ID is keccak256(agent entity ID + source URI), so each agent owns its
+ * own copy of the parsed document and `agent` is a true 1-to-1 back-reference,
+ * while the same agent re-announcing an identical URI reuses the entity.
+ *
  * The content is entirely agent-controlled, so nothing here trusts its shape:
  * every read goes through the guarded helpers in `../utils/json.ts`, and a
  * malformed document simply yields null instead of a partial or crashed
  * handler.
  */
-export function resolveAgentRegistration(sourceURI: string, sourceURIKind: string): Bytes | null {
+export function resolveAgentRegistration(
+  agentId: Bytes,
+  sourceURI: string,
+  sourceURIKind: string,
+): Bytes | null {
   if (sourceURIKind != URI_KIND_DATA) return null;
 
   const rawJSON = decodeDataUri(sourceURI);
   if (rawJSON == null) return null;
 
-  const id = Bytes.fromByteArray(crypto.keccak256(Bytes.fromUTF8(sourceURI)));
+  const id = Bytes.fromByteArray(crypto.keccak256(agentId.concat(Bytes.fromUTF8(sourceURI))));
   if (AgentRegistration.load(id) != null) return id;
 
   const parsed = json.try_fromString(rawJSON!);
@@ -45,6 +53,7 @@ export function resolveAgentRegistration(sourceURI: string, sourceURIKind: strin
   if (obj == null) return null;
 
   const registration = new AgentRegistration(id);
+  registration.agent = agentId;
   registration.sourceURI = sourceURI;
   registration.sourceURIKind = sourceURIKind;
   registration.contentHash = Bytes.fromByteArray(crypto.keccak256(Bytes.fromUTF8(rawJSON!)));
@@ -101,7 +110,6 @@ function saveAgentService(
   entity.name = name!;
   entity.endpoint = endpoint!;
   entity.version = asString(service.get("version"));
-  entity.description = asString(service.get("description"));
   // Every feature and attribute below comes from an explicit document field;
   // this parser never guesses at capabilities, so it is always false.
   entity.capabilitiesInferred = false;
@@ -173,13 +181,13 @@ function saveServiceFeatures(
   return position;
 }
 
-// Every other service key becomes a forward-compatible attribute so custom
-// or future service fields are not silently dropped.
+// Every other service key, including description and method, becomes a
+// forward-compatible attribute so custom or future service fields are not
+// silently dropped.
 const KNOWN_SERVICE_KEYS = [
   "name",
   "endpoint",
   "version",
-  "description",
   "capabilities",
   "mcpTools",
   "mcpPrompts",
