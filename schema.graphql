@@ -12,12 +12,7 @@ type _Schema_
     name: "agentServiceSearch"
     language: en
     algorithm: rank
-    include: [
-      {
-        entity: "AgentService"
-        fields: [{ name: "name" }, { name: "description" }, { name: "endpoint" }]
-      }
-    ]
+    include: [{ entity: "AgentService", fields: [{ name: "name" }, { name: "endpoint" }] }]
   )
   @fulltext(
     name: "agentProfileFileSearch"
@@ -31,12 +26,7 @@ type _Schema_
     name: "agentServiceFileSearch"
     language: en
     algorithm: rank
-    include: [
-      {
-        entity: "AgentServiceFile"
-        fields: [{ name: "name" }, { name: "description" }, { name: "endpoint" }]
-      }
-    ]
+    include: [{ entity: "AgentServiceFile", fields: [{ name: "name" }, { name: "endpoint" }] }]
   )
   @fulltext(
     name: "feedbackDocumentSearch"
@@ -322,9 +312,11 @@ type AgentMetadataRevision @entity(immutable: true) {
 }
 
 # Parsed data: agentURI contents. Chain handlers own this entity tree. The ID is
-# the hash of the complete source URI, so agents can share identical documents.
+# keccak256(agent entity ID + source URI), so each agent owns its own copy of
+# the parsed document and `agent` is a true 1-to-1 back-reference.
 type AgentRegistration implements AgentRegistrationData @entity(immutable: true) {
   id: Bytes!
+  agent: Agent!
   sourceURI: String!
   sourceURIKind: URIKind!
   contentHash: Bytes
@@ -346,7 +338,8 @@ type AgentRegistration implements AgentRegistrationData @entity(immutable: true)
 
 # `name` preserves the producer's value while `kind` provides a stable,
 # case-insensitive filter. Unknown names map to CUSTOM, not to new entity
-# shapes.
+# shapes. Fields beyond name/endpoint/version (e.g. description, method) land
+# in AgentServiceAttribute rows.
 type AgentService @entity(immutable: true) {
   id: Bytes!
   registration: AgentRegistration!
@@ -355,8 +348,6 @@ type AgentService @entity(immutable: true) {
   name: String!
   endpoint: String!
   version: String
-  description: String
-  method: String
   capabilitiesInferred: Boolean!
   features: [AgentServiceFeature!]! @derivedFrom(field: "service")
   attributes: [AgentServiceAttribute!]! @derivedFrom(field: "service")
@@ -404,8 +395,11 @@ type AgentTrust @entity(immutable: true) {
 
 # IPFS and Arweave handlers cannot write the chain-owned entity types above.
 # This parallel tree gives file data sources their own immutable entity types.
+# File handlers receive the agent entity ID in DataSourceContext and use the
+# same keccak256(agent entity ID + source URI) ID rule as AgentRegistration.
 type AgentRegistrationFile implements AgentRegistrationData @entity(immutable: true) {
   id: Bytes!
+  agent: Agent!
   sourceURI: String!
   sourceURIKind: URIKind!
   contentHash: Bytes
@@ -433,8 +427,6 @@ type AgentServiceFile @entity(immutable: true) {
   name: String!
   endpoint: String!
   version: String
-  description: String
-  method: String
   capabilitiesInferred: Boolean!
   features: [AgentServiceFeatureFile!]! @derivedFrom(field: "service")
   attributes: [AgentServiceAttributeFile!]! @derivedFrom(field: "service")

@@ -33,9 +33,14 @@ export function handleRegistered(event: Registered): void {
 
   const owner = getOrCreateAccount(event.params.owner);
   const agentURIKind = classifyUri(event.params.agentURI);
-  const registrationId = resolveAgentRegistration(event.params.agentURI, agentURIKind);
+  const agentIdBytes = agentEntityId(event.address, event.params.agentId);
+  const registrationId = resolveAgentRegistration(
+    agentIdBytes,
+    event.params.agentURI,
+    agentURIKind,
+  );
 
-  const agent = new Agent(agentEntityId(event.address, event.params.agentId));
+  const agent = new Agent(agentIdBytes);
   agent.registry = registry.id;
   agent.agentId = event.params.agentId;
   agent.owner = owner.id;
@@ -130,7 +135,7 @@ export function handleURIUpdated(event: URIUpdated): void {
 
   const updatedBy = getOrCreateAccount(event.params.updatedBy);
   const uriKind = classifyUri(event.params.newURI);
-  const registrationId = resolveAgentRegistration(event.params.newURI, uriKind);
+  const registrationId = resolveAgentRegistration(agent.id, event.params.newURI, uriKind);
 
   agent.agentURI = event.params.newURI;
   agent.agentURIKind = uriKind;

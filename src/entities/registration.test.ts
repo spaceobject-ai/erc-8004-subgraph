@@ -1,6 +1,10 @@
+import { Bytes } from "@graphprotocol/graph-ts";
 import { assert, clearStore, describe, test } from "matchstick-as";
 import { resolveAgentRegistration } from "./registration";
 import { URI_KIND_HTTPS } from "../utils/uri";
+
+const AGENT_ID = Bytes.fromHexString("0x00000000000000000000000000000000000080040001");
+const OTHER_AGENT_ID = Bytes.fromHexString("0x00000000000000000000000000000000000080040002");
 
 function dataUri(json: string): string {
   return "data:application/json," + json;
@@ -14,9 +18,10 @@ describe("resolveAgentRegistration", () => {
       '{"type":"https://eips.ethereum.org/EIPS/eip-8004#registration-v1","name":"ResearcherBot","description":"Summarizes papers","image":"ipfs://Qm.../avatar.png","active":true,"x402Support":false}',
     );
 
-    const id = resolveAgentRegistration(uri, "DATA")!;
+    const id = resolveAgentRegistration(AGENT_ID, uri, "DATA")!;
 
     assert.entityCount("AgentRegistration", 1);
+    assert.fieldEquals("AgentRegistration", id.toHexString(), "agent", AGENT_ID.toHexString());
     assert.fieldEquals("AgentRegistration", id.toHexString(), "name", "ResearcherBot");
     assert.fieldEquals("AgentRegistration", id.toHexString(), "description", "Summarizes papers");
     assert.fieldEquals("AgentRegistration", id.toHexString(), "active", "true");
@@ -32,24 +37,36 @@ describe("resolveAgentRegistration", () => {
 
   test("returns null for a non-DATA source URI", () => {
     clearStore();
-    assert.assertTrue(!resolveAgentRegistration("https://example.com/agent.json", URI_KIND_HTTPS));
+    assert.assertTrue(
+      !resolveAgentRegistration(AGENT_ID, "https://example.com/agent.json", URI_KIND_HTTPS),
+    );
   });
 
   test("returns null for malformed JSON", () => {
     clearStore();
-    assert.assertTrue(!resolveAgentRegistration(dataUri("{not json"), "DATA"));
+    assert.assertTrue(!resolveAgentRegistration(AGENT_ID, dataUri("{not json"), "DATA"));
     assert.entityCount("AgentRegistration", 0);
   });
 
-  test("reuses the same entity for an identical source URI", () => {
+  test("reuses the entity per agent and separates identical URIs across agents", () => {
     clearStore();
     const uri = dataUri('{"name":"A"}');
 
-    const first = resolveAgentRegistration(uri, "DATA")!;
-    const second = resolveAgentRegistration(uri, "DATA")!;
+    const first = resolveAgentRegistration(AGENT_ID, uri, "DATA")!;
+    const second = resolveAgentRegistration(AGENT_ID, uri, "DATA")!;
 
     assert.bytesEquals(first, second);
     assert.entityCount("AgentRegistration", 1);
+
+    const other = resolveAgentRegistration(OTHER_AGENT_ID, uri, "DATA")!;
+    assert.assertTrue(!other.equals(first));
+    assert.entityCount("AgentRegistration", 2);
+    assert.fieldEquals(
+      "AgentRegistration",
+      other.toHexString(),
+      "agent",
+      OTHER_AGENT_ID.toHexString(),
+    );
   });
 
   test("parses services into AgentService, features, and attributes", () => {
@@ -57,12 +74,12 @@ describe("resolveAgentRegistration", () => {
 
     const uri = dataUri(
       '{"name":"A","services":[' +
-        '{"name":"MCP","endpoint":"https://mcp.example/","version":"2025-06-18","mcpTools":["analyze"],"custom":"x"},' +
+        '{"name":"MCP","endpoint":"https://mcp.example/","version":"2025-06-18","mcpTools":["analyze"],"custom":"x","description":"Paper analysis tools"},' +
         '{"name":"A2A","endpoint":"https://a2a.example/card.json","a2aSkills":["coding"]}' +
         "]}",
     );
 
-    const id = resolveAgentRegistration(uri, "DATA")!;
+    const id = resolveAgentRegistration(AGENT_ID, uri, "DATA")!;
 
     assert.entityCount("AgentService", 2);
     const mcpServiceId = id.concatI32(0);
@@ -79,7 +96,7 @@ describe("resolveAgentRegistration", () => {
     assert.fieldEquals("AgentServiceFeature", mcpFeatureId.toHexString(), "kind", "MCP_TOOL");
     assert.fieldEquals("AgentServiceFeature", mcpFeatureId.toHexString(), "value", "analyze");
 
-    assert.entityCount("AgentServiceAttribute", 1);
+    assert.entityCount("AgentServiceAttribute", 2);
     const mcpAttributeId = mcpServiceId.concatI32(0);
     assert.fieldEquals("AgentServiceAttribute", mcpAttributeId.toHexString(), "key", "custom");
     assert.fieldEquals("AgentServiceAttribute", mcpAttributeId.toHexString(), "value", "x");
@@ -90,6 +107,22 @@ describe("resolveAgentRegistration", () => {
       "STRING",
     );
 
+    // `description` is not a first-class AgentService field; it lands in the
+    // attribute rows alongside other non-core keys.
+    const descriptionAttributeId = mcpServiceId.concatI32(1);
+    assert.fieldEquals(
+      "AgentServiceAttribute",
+      descriptionAttributeId.toHexString(),
+      "key",
+      "description",
+    );
+    assert.fieldEquals(
+      "AgentServiceAttribute",
+      descriptionAttributeId.toHexString(),
+      "value",
+      "Paper analysis tools",
+    );
+
     const a2aServiceId = id.concatI32(1);
     assert.fieldEquals("AgentService", a2aServiceId.toHexString(), "kind", "A2A");
   });
@@ -98,7 +131,7 @@ describe("resolveAgentRegistration", () => {
     clearStore();
 
     const uri = dataUri('{"name":"A","endpoints":[{"name":"web","endpoint":"https://a.example"}]}');
-    const id = resolveAgentRegistration(uri, "DATA")!;
+    const id = resolveAgentRegistration(AGENT_ID, uri, "DATA")!;
 
     assert.fieldEquals("AgentRegistration", id.toHexString(), "usedLegacyEndpointsField", "true");
     assert.entityCount("AgentService", 1);
@@ -111,7 +144,7 @@ describe("resolveAgentRegistration", () => {
     const uri = dataUri(
       '{"name":"A","registrations":[{"agentId":22,"agentRegistry":"eip155:11155111:0x8004abc"}],"supportedTrust":["reputation","tee-attestation","unknown-model"]}',
     );
-    const id = resolveAgentRegistration(uri, "DATA")!;
+    const id = resolveAgentRegistration(AGENT_ID, uri, "DATA")!;
 
     const referenceId = id.concatI32(0);
     assert.entityCount("AgentRegistrationReference", 1);
