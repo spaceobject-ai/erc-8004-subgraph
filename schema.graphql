@@ -151,8 +151,11 @@ interface FeedbackDocumentData {
 }
 
 # Registry-level state is useful for discovery pages and protocol counters.
-# The registry contract address is the ID in this one-chain-per-deployment
-# subgraph.
+# ID: UTF-8 bytes of "<chainId>:<registry address>" (see `registryEntityId`
+# in src/entities/registry.ts). The chain ID matters here for the same reason
+# it does for `Agent`/`Feedback` below: the ERC-8004 registries deploy at the
+# same address on several chains (see chain.config.json), so cross-deployment
+# consumers would otherwise collide on byte-identical IDs.
 type IdentityRegistry @entity(immutable: false) {
   id: Bytes!
   network: String!
@@ -165,6 +168,7 @@ type IdentityRegistry @entity(immutable: false) {
   agents: [Agent!]! @derivedFrom(field: "registry")
 }
 
+# ID: same chain-scoped scheme as `IdentityRegistry` above.
 type ReputationRegistry @entity(immutable: false) {
   id: Bytes!
   network: String!

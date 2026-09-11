@@ -10,6 +10,7 @@ import { agentEntityId, getAgent } from "../entities/agent";
 import { feedbackEntityId, getFeedback } from "../entities/feedback";
 import { resolveFeedbackDocument } from "../entities/feedback-document";
 import { createFeedbackMetricPoint } from "../entities/feedback-metric-point";
+import { registryEntityId } from "../entities/registry";
 import { isZeroHash } from "../utils/bytes";
 import { classifyUri } from "../utils/uri";
 
@@ -17,11 +18,7 @@ export function handleNewFeedback(event: NewFeedback): void {
   const registry = getOrCreateReputationRegistry(event.address, event.block.timestamp);
 
   const agent = getAgent(
-    agentEntityId(
-      registry.chainId,
-      Address.fromBytes(registry.identityRegistry),
-      event.params.agentId,
-    ),
+    agentEntityId(registry.chainId, contextIdentityRegistryAddress(), event.params.agentId),
   );
   if (agent == null) return;
 
@@ -88,15 +85,11 @@ export function handleNewFeedback(event: NewFeedback): void {
 }
 
 export function handleFeedbackRevoked(event: FeedbackRevoked): void {
-  const registry = ReputationRegistry.load(event.address);
+  const registry = ReputationRegistry.load(registryEntityId(contextChainId(), event.address));
   if (registry == null) return;
 
   const agent = getAgent(
-    agentEntityId(
-      registry.chainId,
-      Address.fromBytes(registry.identityRegistry),
-      event.params.agentId,
-    ),
+    agentEntityId(registry.chainId, contextIdentityRegistryAddress(), event.params.agentId),
   );
   if (agent == null) return;
 
@@ -141,15 +134,11 @@ export function handleFeedbackRevoked(event: FeedbackRevoked): void {
 }
 
 export function handleResponseAppended(event: ResponseAppended): void {
-  const registry = ReputationRegistry.load(event.address);
+  const registry = ReputationRegistry.load(registryEntityId(contextChainId(), event.address));
   if (registry == null) return;
 
   const agent = getAgent(
-    agentEntityId(
-      registry.chainId,
-      Address.fromBytes(registry.identityRegistry),
-      event.params.agentId,
-    ),
+    agentEntityId(registry.chainId, contextIdentityRegistryAddress(), event.params.agentId),
   );
   if (agent == null) return;
 
@@ -195,12 +184,14 @@ export function handleResponseAppended(event: ResponseAppended): void {
 }
 
 function getOrCreateReputationRegistry(address: Address, timestamp: BigInt): ReputationRegistry {
-  let registry = ReputationRegistry.load(address);
+  const chainId = contextChainId();
+  const id = registryEntityId(chainId, address);
+  let registry = ReputationRegistry.load(id);
   if (registry == null) {
-    registry = new ReputationRegistry(address);
+    registry = new ReputationRegistry(id);
     registry.network = dataSource.network();
-    registry.chainId = dataSource.context().getBigInt("chainId");
-    registry.identityRegistry = dataSource.context().getBytes("identityRegistry");
+    registry.chainId = chainId;
+    registry.identityRegistry = registryEntityId(chainId, contextIdentityRegistryAddress());
     registry.feedbackCount = BigInt.zero();
     registry.activeFeedbackCount = BigInt.zero();
     registry.responseCount = BigInt.zero();
@@ -215,4 +206,16 @@ function normalizeValue(value: BigInt, valueDecimals: i32): BigDecimal {
       .pow(valueDecimals as u8)
       .toBigDecimal(),
   );
+}
+
+// The `chainId` and `identityRegistry` context values set for this data
+// source in subgraph.template.yaml; registry entity IDs are chain-scoped, and
+// the identity registry's raw address only lives in context (its entity ID
+// is now the chain-scoped one, not the address itself).
+function contextChainId(): BigInt {
+  return dataSource.context().getBigInt("chainId");
+}
+
+function contextIdentityRegistryAddress(): Address {
+  return Address.fromBytes(dataSource.context().getBytes("identityRegistry"));
 }

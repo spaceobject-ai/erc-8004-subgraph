@@ -21,6 +21,7 @@ import {
 import { getOrCreateAccount } from "../entities/account";
 import { agentEntityId, getAgent } from "../entities/agent";
 import { resolveAgentRegistration } from "../entities/registration";
+import { registryEntityId } from "../entities/registry";
 import { toEip155Caip10 } from "../utils/caip";
 import { classifyUri } from "../utils/uri";
 
@@ -184,7 +185,7 @@ export function handleTransfer(event: Transfer): void {
 
   if (!isBurn) return;
 
-  const registry = IdentityRegistry.load(event.address);
+  const registry = IdentityRegistry.load(registryEntityId(contextChainId(), event.address));
   if (registry == null) return;
   registry.unburnedAgentCount = registry.unburnedAgentCount.minus(BigInt.fromI32(1));
   registry.updatedAt = event.block.timestamp.toI64();
@@ -221,8 +222,8 @@ export function handleApprovalForAll(event: ApprovalForAll): void {
   const operator = getOrCreateAccount(event.params.operator);
 
   // Both addresses are fixed-width, so concatenation alone is a safe,
-  // collision-free ID: unlike ids.ts's `agentEntityId`, no delimiter is
-  // needed between two same-length components.
+  // collision-free ID: unlike `agentEntityId` in ../entities/agent.ts, no
+  // delimiter is needed between two same-length components.
   let approval = OperatorApproval.load(owner.id.concat(operator.id));
   if (approval == null) {
     approval = new OperatorApproval(owner.id.concat(operator.id));
@@ -249,12 +250,14 @@ export function handleApprovalForAll(event: ApprovalForAll): void {
 }
 
 function getOrCreateIdentityRegistry(address: Address, timestamp: BigInt): IdentityRegistry {
-  let registry = IdentityRegistry.load(address);
+  const chainId = contextChainId();
+  const id = registryEntityId(chainId, address);
+  let registry = IdentityRegistry.load(id);
   if (registry == null) {
-    registry = new IdentityRegistry(address);
+    registry = new IdentityRegistry(id);
     registry.network = dataSource.network();
-    registry.chainId = contextChainId();
-    registry.agentRegistry = toEip155Caip10(registry.chainId, address);
+    registry.chainId = chainId;
+    registry.agentRegistry = toEip155Caip10(chainId, address);
     registry.agentCount = BigInt.zero();
     registry.unburnedAgentCount = BigInt.zero();
     registry.createdAt = timestamp.toI64();
@@ -263,7 +266,7 @@ function getOrCreateIdentityRegistry(address: Address, timestamp: BigInt): Ident
 }
 
 // The `chainId` context value set for this data source in
-// subgraph.template.yaml; agent entity IDs are chain-scoped.
+// subgraph.template.yaml; agent and registry entity IDs are chain-scoped.
 function contextChainId(): BigInt {
   return dataSource.context().getBigInt("chainId");
 }
