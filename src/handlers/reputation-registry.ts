@@ -1,29 +1,30 @@
-import { Address, BigDecimal, BigInt, Bytes, dataSource, log } from "@graphprotocol/graph-ts";
+import { Address, BigDecimal, BigInt, dataSource } from "@graphprotocol/graph-ts";
 import {
   FeedbackRevoked,
   NewFeedback,
   ResponseAppended,
 } from "../../generated/ReputationRegistry/ReputationRegistry";
-import {
-  Agent,
-  Feedback,
-  FeedbackMetricPoint,
-  FeedbackResponse,
-  ReputationRegistry,
-} from "../../generated/schema";
+import { Feedback, FeedbackResponse, ReputationRegistry } from "../../generated/schema";
 import { getOrCreateAccount } from "../entities/account";
+import { agentEntityId, getAgent } from "../entities/agent";
+import { feedbackEntityId, getFeedback } from "../entities/feedback";
 import { resolveFeedbackDocument } from "../entities/feedback-document";
-import { agentEntityId } from "../utils/ids";
+import { createFeedbackMetricPoint } from "../entities/feedback-metric-point";
+import { registryEntityId } from "../entities/registry";
+import { isZeroHash } from "../utils/bytes";
 import { classifyUri } from "../utils/uri";
 
 export function handleNewFeedback(event: NewFeedback): void {
   const registry = getOrCreateReputationRegistry(event.address, event.block.timestamp);
 
-  const agent = loadAgent(registry.identityRegistry, event.params.agentId);
+  const agent = getAgent(
+    agentEntityId(registry.chainId, contextIdentityRegistryAddress(), event.params.agentId),
+  );
   if (agent == null) return;
 
   const client = getOrCreateAccount(event.params.clientAddress);
   const feedbackId = feedbackEntityId(
+    registry.chainId,
     event.address,
     event.params.agentId,
     event.params.clientAddress,
@@ -72,7 +73,7 @@ export function handleNewFeedback(event: NewFeedback): void {
   registry.updatedAt = event.block.timestamp.toI64();
   registry.save();
 
-  saveFeedbackMetricPoint(
+  createFeedbackMetricPoint(
     event.block.timestamp,
     registry.id,
     agent.id,
@@ -84,26 +85,24 @@ export function handleNewFeedback(event: NewFeedback): void {
 }
 
 export function handleFeedbackRevoked(event: FeedbackRevoked): void {
-  const registry = ReputationRegistry.load(event.address);
+  const registry = ReputationRegistry.load(registryEntityId(contextChainId(), event.address));
   if (registry == null) return;
 
-  const agent = loadAgent(registry.identityRegistry, event.params.agentId);
+  const agent = getAgent(
+    agentEntityId(registry.chainId, contextIdentityRegistryAddress(), event.params.agentId),
+  );
   if (agent == null) return;
 
-  const feedbackId = feedbackEntityId(
-    event.address,
-    event.params.agentId,
-    event.params.clientAddress,
-    event.params.feedbackIndex,
+  const feedback = getFeedback(
+    feedbackEntityId(
+      registry.chainId,
+      event.address,
+      event.params.agentId,
+      event.params.clientAddress,
+      event.params.feedbackIndex,
+    ),
   );
-  const feedback = Feedback.load(feedbackId);
-  if (feedback == null) {
-    log.warning("FeedbackRevoked for unknown feedback {} on registry {}", [
-      feedbackId.toHexString(),
-      event.address.toHexString(),
-    ]);
-    return;
-  }
+  if (feedback == null) return;
 
   feedback.isRevoked = true;
   feedback.revokedAt = event.block.timestamp.toI64();
@@ -123,7 +122,7 @@ export function handleFeedbackRevoked(event: FeedbackRevoked): void {
 
   // Revocation writes the inverse of the original point so cumulative sums
   // (see FeedbackMetricPoint in schema.graphql) describe active feedback.
-  saveFeedbackMetricPoint(
+  createFeedbackMetricPoint(
     event.block.timestamp,
     registry.id,
     agent.id,
@@ -135,26 +134,24 @@ export function handleFeedbackRevoked(event: FeedbackRevoked): void {
 }
 
 export function handleResponseAppended(event: ResponseAppended): void {
-  const registry = ReputationRegistry.load(event.address);
+  const registry = ReputationRegistry.load(registryEntityId(contextChainId(), event.address));
   if (registry == null) return;
 
-  const agent = loadAgent(registry.identityRegistry, event.params.agentId);
+  const agent = getAgent(
+    agentEntityId(registry.chainId, contextIdentityRegistryAddress(), event.params.agentId),
+  );
   if (agent == null) return;
 
-  const feedbackId = feedbackEntityId(
-    event.address,
-    event.params.agentId,
-    event.params.clientAddress,
-    event.params.feedbackIndex,
+  const feedback = getFeedback(
+    feedbackEntityId(
+      registry.chainId,
+      event.address,
+      event.params.agentId,
+      event.params.clientAddress,
+      event.params.feedbackIndex,
+    ),
   );
-  const feedback = Feedback.load(feedbackId);
-  if (feedback == null) {
-    log.warning("ResponseAppended for unknown feedback {} on registry {}", [
-      feedbackId.toHexString(),
-      event.address.toHexString(),
-    ]);
-    return;
-  }
+  if (feedback == null) return;
 
   const responder = getOrCreateAccount(event.params.responder);
   const responseURIKind = classifyUri(event.params.responseURI);
@@ -187,50 +184,20 @@ export function handleResponseAppended(event: ResponseAppended): void {
 }
 
 function getOrCreateReputationRegistry(address: Address, timestamp: BigInt): ReputationRegistry {
-  let registry = ReputationRegistry.load(address);
+  const chainId = contextChainId();
+  const id = registryEntityId(chainId, address);
+  let registry = ReputationRegistry.load(id);
   if (registry == null) {
-    registry = new ReputationRegistry(address);
+    registry = new ReputationRegistry(id);
     registry.network = dataSource.network();
-    registry.chainId = dataSource.context().getBigInt("chainId");
-    registry.identityRegistry = dataSource.context().getBytes("identityRegistry");
+    registry.chainId = chainId;
+    registry.identityRegistry = registryEntityId(chainId, contextIdentityRegistryAddress());
     registry.feedbackCount = BigInt.zero();
     registry.activeFeedbackCount = BigInt.zero();
     registry.responseCount = BigInt.zero();
     registry.createdAt = timestamp.toI64();
   }
   return registry;
-}
-
-function loadAgent(identityRegistry: Bytes, agentId: BigInt): Agent | null {
-  const agent = Agent.load(agentEntityId(Address.fromBytes(identityRegistry), agentId));
-  if (agent == null) {
-    log.warning("Feedback event for unknown agent {} on identity registry {}", [
-      agentId.toString(),
-      identityRegistry.toHexString(),
-    ]);
-  }
-  return agent;
-}
-
-// `Feedback.id` comment: reputation registry + agent ID + client address +
-// feedback index. Joined with "-" (rather than concatenated as raw bytes)
-// because `agentId` and `feedbackIndex` are variable-length decimal text;
-// see `agentEntityId` in ids.ts for the same reasoning.
-function feedbackEntityId(
-  registry: Address,
-  agentId: BigInt,
-  client: Address,
-  feedbackIndex: BigInt,
-): Bytes {
-  return Bytes.fromUTF8(
-    registry.toHexString() +
-      "-" +
-      agentId.toString() +
-      "-" +
-      client.toHexString() +
-      "-" +
-      feedbackIndex.toString(),
-  );
 }
 
 function normalizeValue(value: BigInt, valueDecimals: i32): BigDecimal {
@@ -241,26 +208,14 @@ function normalizeValue(value: BigInt, valueDecimals: i32): BigDecimal {
   );
 }
 
-function isZeroHash(value: Bytes): boolean {
-  return value.equals(Bytes.fromUint8Array(new Uint8Array(value.length)));
+// The `chainId` and `identityRegistry` context values set for this data
+// source in subgraph.template.yaml; registry entity IDs are chain-scoped, and
+// the identity registry's raw address only lives in context (its entity ID
+// is now the chain-scoped one, not the address itself).
+function contextChainId(): BigInt {
+  return dataSource.context().getBigInt("chainId");
 }
 
-function saveFeedbackMetricPoint(
-  timestamp: BigInt,
-  registryId: Bytes,
-  agentId: Bytes,
-  tag1: string,
-  tag2: string,
-  feedbackCountDelta: BigInt,
-  valueDelta: BigDecimal,
-): void {
-  const point = new FeedbackMetricPoint(0);
-  point.timestamp = timestamp.toI64();
-  point.registry = registryId;
-  point.agent = agentId;
-  point.tag1 = tag1;
-  point.tag2 = tag2;
-  point.feedbackCountDelta = feedbackCountDelta;
-  point.valueDelta = valueDelta;
-  point.save();
+function contextIdentityRegistryAddress(): Address {
+  return Address.fromBytes(dataSource.context().getBytes("identityRegistry"));
 }

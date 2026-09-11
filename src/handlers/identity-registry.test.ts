@@ -11,8 +11,16 @@
 // parsing) are exercised by `graph build` typechecking, the extensive
 // `src/utils/*.test.ts` coverage of the logic they delegate to, and manual
 // review; see the PR description for the recommended path to close this gap.
-import { assert, clearStore, describe, newMockEvent, test } from "matchstick-as";
-import { Address, BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts";
+import {
+  assert,
+  beforeAll,
+  clearStore,
+  dataSourceMock,
+  describe,
+  newMockEvent,
+  test,
+} from "matchstick-as";
+import { Address, BigInt, Bytes, DataSourceContext, ethereum } from "@graphprotocol/graph-ts";
 import { Approval, Transfer } from "../../generated/IdentityRegistry/IdentityRegistry";
 import { handleApproval, handleTransfer } from "./identity-registry";
 
@@ -20,6 +28,14 @@ const REGISTRY = Address.fromString("0x8004A818BFB912233c491871b3d84c89A494BD9e"
 const OWNER = Address.fromString("0x0000000000000000000000000000000000000001");
 const OTHER = Address.fromString("0x0000000000000000000000000000000000000002");
 const ZERO_ADDRESS = Address.zero();
+
+beforeAll(() => {
+  // Mirrors the `chainId` context that subgraph.template.yaml sets for the
+  // IdentityRegistry data source; agent entity IDs are chain-scoped.
+  const context = new DataSourceContext();
+  context.setBigInt("chainId", BigInt.fromI32(11155111));
+  dataSourceMock.setReturnValues(REGISTRY.toHexString(), "sepolia", context);
+});
 
 function baseEvent(logIndex: i32): ethereum.Event {
   const event = newMockEvent();

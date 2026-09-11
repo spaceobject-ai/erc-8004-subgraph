@@ -130,7 +130,6 @@ interface AgentRegistrationData {
 
 interface FeedbackDocumentData {
   id: Bytes!
-  feedbackId: Bytes!
   sourceURI: String!
   sourceURIKind: URIKind!
   contentHash: Bytes
@@ -152,8 +151,11 @@ interface FeedbackDocumentData {
 }
 
 # Registry-level state is useful for discovery pages and protocol counters.
-# The registry contract address is the ID in this one-chain-per-deployment
-# subgraph.
+# ID: UTF-8 bytes of "<chainId>:<registry address>" (see `registryEntityId`
+# in src/entities/registry.ts). The chain ID matters here for the same reason
+# it does for `Agent`/`Feedback` below: the ERC-8004 registries deploy at the
+# same address on several chains (see chain.config.json), so cross-deployment
+# consumers would otherwise collide on byte-identical IDs.
 type IdentityRegistry @entity(immutable: false) {
   id: Bytes!
   network: String!
@@ -166,6 +168,7 @@ type IdentityRegistry @entity(immutable: false) {
   agents: [Agent!]! @derivedFrom(field: "registry")
 }
 
+# ID: same chain-scoped scheme as `IdentityRegistry` above.
 type ReputationRegistry @entity(immutable: false) {
   id: Bytes!
   network: String!
@@ -191,7 +194,7 @@ type Account @entity(immutable: false) {
 }
 
 # Mutable current state of an ERC-8004 identity.
-# ID: identity registry address + agentId bytes.
+# ID: UTF-8 bytes of "<chainId>:<identity registry address>:<agentId>".
 type Agent @entity(immutable: false) {
   id: Bytes!
   registry: IdentityRegistry!
@@ -469,7 +472,8 @@ type AgentTrustFile @entity(immutable: true) {
 }
 
 # Mutable current state of one feedback item.
-# ID: reputation registry + agent ID + client address + feedback index.
+# ID: UTF-8 bytes of "<chainId>:<reputation registry address>:<agentId>:
+# <client address>:<feedbackIndex>".
 type Feedback @entity(immutable: false) {
   id: Bytes!
   registry: ReputationRegistry!
@@ -519,11 +523,12 @@ type FeedbackResponse @entity(immutable: true) {
 }
 
 # Parsed data: feedbackURI contents. Chain handlers own this entity tree. The ID
-# is keccak256(feedback ID + source URI), so two feedback records may reuse one
-# URI without sharing a document entity.
+# is keccak256(feedback entity ID + source URI), so two feedback records may
+# reuse one URI without sharing a document entity, and `feedback` is a true
+# 1-to-1 back-reference.
 type FeedbackDocument implements FeedbackDocumentData @entity(immutable: true) {
   id: Bytes!
-  feedbackId: Bytes!
+  feedback: Feedback!
   sourceURI: String!
   sourceURIKind: URIKind!
   contentHash: Bytes
@@ -590,11 +595,11 @@ type FeedbackAttachment @entity(immutable: true) {
 }
 
 # File handlers receive `feedbackId` in DataSourceContext. The ID uses the same
-# feedback ID + source URI rule as the data: document above. A repeated IPFS or
-# Arweave URI therefore creates one document per feedback record.
+# feedback entity ID + source URI rule as the data: document above. A repeated
+# IPFS or Arweave URI therefore creates one document per feedback record.
 type FeedbackDocumentFile implements FeedbackDocumentData @entity(immutable: true) {
   id: Bytes!
-  feedbackId: Bytes!
+  feedback: Feedback!
   sourceURI: String!
   sourceURIKind: URIKind!
   contentHash: Bytes

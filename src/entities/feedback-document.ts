@@ -26,6 +26,10 @@ import { classifyUri, decodeDataUri, URI_KIND_DATA } from "../utils/uri";
  * `sourceURIKind` is not `DATA` or the payload cannot be parsed as a JSON
  * object.
  *
+ * The ID is keccak256(feedback entity ID + source URI), so two feedback
+ * records may reuse one URI without sharing a document entity, and `feedback`
+ * is a true 1-to-1 back-reference.
+ *
  * As with `resolveAgentRegistration`, the content is entirely
  * client-controlled, so every read goes through the guarded helpers in
  * `../utils/json.ts`.
@@ -49,7 +53,7 @@ export function resolveFeedbackDocument(
   if (obj == null) return null;
 
   const document = new FeedbackDocument(id);
-  document.feedbackId = feedbackId;
+  document.feedback = feedbackId;
   document.sourceURI = sourceURI;
   document.sourceURIKind = sourceURIKind;
   document.contentHash = Bytes.fromByteArray(crypto.keccak256(Bytes.fromUTF8(rawJSON!)));

@@ -133,6 +133,13 @@ what the code actually does.
   registrations, feedback documents, services, and responses. Reverse lookups
   use `@derivedFrom` instead of arrays, so no parent entity grows an unbounded
   list.
+- `IdentityRegistry`, `ReputationRegistry`, `Agent`, and `Feedback` IDs are
+  UTF-8 strings that start with the chain ID (`"<chainId>:<registry>"` for the
+  registries, `"<chainId>:<registry>:<agentId>"` for `Agent`), because the
+  registries are deployed at the same addresses on several chains.
+  `AgentRegistration` and `FeedbackDocument` IDs are `keccak256` of the parent
+  entity ID plus the source URI, so each URI revision keeps its own immutable
+  document.
 - `AgentService.kind` lowercases the service name and matches it against web,
   a2a, mcp, oasf, ens, did, email, and agentwallet. Anything else is `CUSTOM`.
   The `capabilities`, `mcpTools`, `mcpPrompts`, `mcpResources`, `a2aSkills`,
