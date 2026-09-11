@@ -38,12 +38,7 @@ describe("resolveFeedbackDocument", () => {
     assert.fieldEquals("FeedbackDocument", id.toHexString(), "valueDecimals", "2");
     assert.fieldEquals("FeedbackDocument", id.toHexString(), "tag1", "defi");
     assert.fieldEquals("FeedbackDocument", id.toHexString(), "reasoning", "Great service");
-    assert.fieldEquals(
-      "FeedbackDocument",
-      id.toHexString(),
-      "feedbackId",
-      FEEDBACK_ID.toHexString(),
-    );
+    assert.fieldEquals("FeedbackDocument", id.toHexString(), "feedback", FEEDBACK_ID.toHexString());
   });
 
   test("returns null for a non-DATA source URI", () => {
